@@ -6,8 +6,6 @@ import json
 # TensorFlow and related imports are temporarily commented out to focus on frontend
 # import tensorflow as tf
 # from PIL import Image
-import numpy as np
-import io
 
 # Initialize the Flask application
 app = Flask(__name__, static_folder='static')
@@ -74,6 +72,13 @@ try:
 except Exception:
     _GEMINI_IMPORTED = False
 
+# Optional offline/free translation fallback (no API key)
+try:
+    from deep_translator import MyMemoryTranslator, GoogleTranslator  # type: ignore
+    _DEEPLITE_IMPORTED = True
+except Exception:
+    _DEEPLITE_IMPORTED = False
+
 def _generate_treatment_with_gemini(crop: str, disease: str):
     """Return a structured treatment plan via Gemini or (None, error) if unavailable."""
     api_key = os.environ.get("GEMINI_API_KEY")
@@ -129,6 +134,125 @@ Output strict JSON with fields:
     except Exception as e:
         print("Gemini error:", e)
         return None, "Failed to generate treatment plan."
+
+def _translate_plan_with_gemini(plan: dict, target_lang: str):
+    """Translate a treatment plan JSON into target language using Gemini.
+    Returns (translated_plan, error or None). On failure, returns (None, err).
+    """
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not _GEMINI_IMPORTED:
+        return None, "Gemini SDK not installed (google-generativeai)."
+    if not api_key:
+        return None, "GEMINI_API_KEY environment variable not set."
+
+    try:
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        src_json = json.dumps(plan, ensure_ascii=False)
+        prompt = f"""
+You are a careful translator. Translate the VALUES of this JSON into {target_lang}.
+Strict rules:
+- Keep the JSON structure and keys exactly the same.
+- Preserve numbers, units (ml, liter, grams), and lists count.
+- Use easy-to-understand, agriculture-appropriate terms for Indian farmers.
+- Do not add extra fields. Return ONLY the JSON.
+
+JSON to translate:
+{src_json}
+"""
+        resp = model.generate_content(prompt)
+        text = getattr(resp, "text", "").strip()
+        m = re.search(r"\{[\s\S]*\}", text)
+        blob = m.group(0) if m else None
+        if not blob:
+            return None, "Model did not return JSON."
+        try:
+            translated = json.loads(blob)
+            return translated, None
+        except Exception as e:
+            return None, f"Failed to parse translation JSON: {e}"
+    except Exception as e:
+        print("Gemini translation error:", e)
+        return None, "Translation failed."
+
+def _translate_plan_with_mymemory(plan: dict, target_lang: str):
+    """Translate plan using MyMemory (deep_translator). Returns (plan, error)."""
+    if not _DEEPLITE_IMPORTED:
+        return None, "deep_translator not installed."
+    # Normalize codes if needed
+    lang = target_lang.lower()
+    try:
+        translator = MyMemoryTranslator(source='en', target=lang)
+
+        def translate_obj(obj):
+            if isinstance(obj, dict):
+                return {k: translate_obj(v) for k, v in obj.items()}
+            if isinstance(obj, list):
+                # batch translate strings when possible to reduce requests
+                str_indices = [i for i, v in enumerate(obj) if isinstance(v, str) and v.strip()]
+                translated_list = list(obj)
+                batch_texts = [obj[i] for i in str_indices]
+                if batch_texts:
+                    try:
+                        results = translator.translate_batch(batch_texts)
+                    except Exception:
+                        results = [translator.translate(t) for t in batch_texts]
+                    for idx, res in zip(str_indices, results):
+                        translated_list[idx] = res
+                # recurse for non-strings
+                for i, v in enumerate(translated_list):
+                    if not isinstance(v, str):
+                        translated_list[i] = translate_obj(v)
+                return translated_list
+            if isinstance(obj, str):
+                try:
+                    return translator.translate(obj) if obj.strip() else obj
+                except Exception:
+                    return obj
+            return obj
+
+        return translate_obj(plan), None
+    except Exception as e:
+        print("MyMemory translation error:", e)
+        return None, "Translation failed."
+
+def _translate_plan_with_google(plan: dict, target_lang: str):
+    """Translate plan using GoogleTranslator (deep_translator). Returns (plan, error)."""
+    if not _DEEPLITE_IMPORTED:
+        return None, "deep_translator not installed."
+    lang = target_lang.lower()
+    try:
+        translator = GoogleTranslator(source='en', target=lang)
+
+        def translate_obj(obj):
+            if isinstance(obj, dict):
+                return {k: translate_obj(v) for k, v in obj.items()}
+            if isinstance(obj, list):
+                str_indices = [i for i, v in enumerate(obj) if isinstance(v, str) and v.strip()]
+                translated_list = list(obj)
+                batch_texts = [obj[i] for i in str_indices]
+                if batch_texts:
+                    try:
+                        results = translator.translate_batch(batch_texts)
+                    except Exception:
+                        results = [translator.translate(t) for t in batch_texts]
+                    for idx, res in zip(str_indices, results):
+                        translated_list[idx] = res
+                for i, v in enumerate(translated_list):
+                    if not isinstance(v, str):
+                        translated_list[i] = translate_obj(v)
+                return translated_list
+            if isinstance(obj, str):
+                try:
+                    return translator.translate(obj) if obj.strip() else obj
+                except Exception:
+                    return obj
+            return obj
+
+        return translate_obj(plan), None
+    except Exception as e:
+        print("GoogleTranslator error:", e)
+        return None, "Translation failed."
 def _fallback_plan(crop: str, disease: str):
     """Return a pragmatic, organic-first fallback treatment plan."""
     return {
@@ -252,6 +376,62 @@ def treatment():
         print("Treatment endpoint error:", e)
         return jsonify({"error": "Internal server error"}), 500
 
+
+@app.route('/languages', methods=['GET'])
+def languages():
+    """Return supported UI languages, Indian languages first."""
+    langs = [
+        {"code": "en", "label": "US English", "region": "US"},
+        {"code": "hi", "label": "हिंदी", "region": "IN"},
+        {"code": "te", "label": "తెలుగు", "region": "IN"},
+        {"code": "ta", "label": "தமிழ்", "region": "IN"},
+        {"code": "kn", "label": "ಕನ್ನಡ", "region": "IN"},
+        {"code": "ml", "label": "മലയാളം", "region": "IN"},
+        {"code": "mr", "label": "मराठी", "region": "IN"},
+        {"code": "es", "label": "Español", "region": "ES"},
+        {"code": "fr", "label": "Français", "region": "FR"},
+        {"code": "pt", "label": "Português", "region": "BR"},
+    ]
+    return jsonify({"languages": langs})
+
+
+@app.route('/translate', methods=['POST'])
+def translate():
+    """Translate a plan to the target language. Body: { plan: {...}, target: "hi" }"""
+    try:
+        data = request.get_json(silent=True) or {}
+        plan = data.get('plan')
+        target = str(data.get('target', '')).strip().lower()
+        if not isinstance(plan, dict) or not target:
+            return jsonify({"error": "Missing 'plan' object or 'target' language code"}), 400
+
+        # Short-circuit if English requested
+        if target in ("en", "en-us", "english"):
+            return jsonify({"plan": plan, "language": target, "source": "original"})
+
+        # Try Gemini first
+        translated, err = _translate_plan_with_gemini(plan, target)
+        if translated is not None:
+            return jsonify({"plan": translated, "language": target, "source": "gemini"})
+
+        # Fallback 1: GoogleTranslator
+        translated2, err2 = _translate_plan_with_google(plan, target)
+        if translated2 is not None:
+            return jsonify({"plan": translated2, "language": target, "source": "google"})
+
+        # Fallback 2: MyMemory (no key)
+        translated3, err3 = _translate_plan_with_mymemory(plan, target)
+        if translated3 is not None:
+            return jsonify({"plan": translated3, "language": target, "source": "mymemory"})
+
+        # Fallback: return original with note when translation unavailable
+        safe = dict(plan)
+        note = err or err2 or err3 or "Unavailable"
+        safe['disclaimer'] = (safe.get('disclaimer') or '') + "\n(Translation unavailable on server; showing English.)"
+        return jsonify({"plan": safe, "language": target, "source": "fallback", "note": note}), 200
+    except Exception as e:
+        print("Translate endpoint error:", e)
+        return jsonify({"error": "Internal server error"}), 500
 
 @app.route('/public-config', methods=['GET'])
 def public_config():

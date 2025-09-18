@@ -408,6 +408,13 @@
                     <!-- Dynamic content will be injected here -->
                 </div>
             </div>
+
+            <!-- Page: AI Treatment Plan (dedicated view for the AI button) -->
+            <div id="ai-plan" class="page">
+                <div id="ai-plan-content" class="bg-white p-6 rounded-xl shadow-md">
+                    <!-- AI plan content will be rendered here -->
+                </div>
+            </div>
         </main>
 
         <!-- WhatsApp Plant Doctor Section -->
@@ -440,11 +447,12 @@
         </section>
 
         <!-- Chatbot -->
-        <div id="chatbot-container" class="fixed bottom-5 right-5 z-50">
+        <div id="chatbot-container" class="fixed bottom-5 right-5 z-50 flex flex-col items-center">
             <button id="chatbot-toggle" class="bg-green-600 text-white rounded-full p-4 shadow-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
                 <i data-lucide="message-circle" id="chat-open-icon"></i>
                 <i data-lucide="x" id="chat-close-icon" class="hidden"></i>
             </button>
+            <div class="mt-1 text-xs text-gray-600 select-none">Assistant</div>
             <div id="chatbot-window" class="hidden absolute bottom-20 right-0 w-80 bg-white rounded-xl shadow-2xl border border-gray-200 flex flex-col">
                 <div class="p-4 bg-green-600 text-white rounded-t-xl">
                     <h3 class="font-bold">AI Farming Coach</h3>
@@ -470,7 +478,10 @@
     <!-- Floating WhatsApp button -->
     <a id="wa-fab" href="#" target="_blank" rel="noopener noreferrer"
        class="fixed bottom-5 left-5 z-50 bg-green-600 text-white rounded-full p-4 shadow-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
-        <i data-lucide="message-circle"></i>
+        <!-- Inline WhatsApp logo -->
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path fill="currentColor" d="M12 .5A11.5 11.5 0 0 0 .5 12c0 2.02.53 3.93 1.54 5.64L.5 23.5l6-1.64A11.46 11.46 0 0 0 12 23.5 11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5Zm0 20.5c-1.84 0-3.6-.49-5.16-1.42l-.38-.23-3.48.95.96-3.42-.25-.4A9.48 9.48 0 1 1 21.5 12 9.5 9.5 0 0 1 12 21.5Zm5.23-6.84c-.3-.15-1.8-.9-2.08-1-.28-.1-.48-.15-.67.1-.2.25-.76.94-.93 1.12-.17.18-.34.2-.62.07-.3-.13-1.28-.47-2.45-1.43-.9-.7-1.49-1.53-1.66-1.78-.18-.25-.02-.38.13-.53.14-.15.32-.35.49-.54.17-.19.23-.31.33-.52.1-.21.06-.38-.02-.55-.08-.16-.72-1.7-.98-2.32-.26-.62-.53-.51-.71-.52h-.6c-.19 0-.54.08-.8.38-.28.3-1.08 1.02-1.08 2.46 0 1.44 1.11 2.83 1.26 3.03.15.2 2.2 3.32 5.34 4.66.75.33 1.33.52 1.79.65.76.22 1.42.2 1.96.12.6-.1 1.83-.73 2.09-1.41.26-.68.26-1.31.18-1.44-.08-.13-.28-.2-.58-.34Z"/>
+        </svg>
     </a>
 
     <script>
@@ -482,24 +493,55 @@
         const pages = document.querySelectorAll('.page');
         
         const showPage = (pageId) => {
-            pages.forEach(page => {
-                page.classList.remove('active');
-                if (page.id === pageId) {
-                    page.classList.add('active');
-                }
-            });
+            const current = document.querySelector('.page.active');
+            const next = document.getElementById(pageId);
+            if (!next) return;
 
-            navLinks.forEach(link => {
-                link.classList.remove('bg-green-100', 'text-green-800', 'font-semibold');
-                link.classList.add('hover:bg-green-50');
-                const linkPageId = link.getAttribute('href').substring(1);
-                const targetId = linkPageId === 'map' ? 'map-page' : linkPageId;
-                if (targetId === pageId) {
-                    link.classList.add('bg-green-100', 'text-green-800', 'font-semibold');
-                    link.classList.remove('hover:bg-green-50');
-                }
-            });
-            window.scrollTo(0, 0);
+            const updateNav = () => {
+                navLinks.forEach(link => {
+                    link.classList.remove('bg-green-100', 'text-green-800', 'font-semibold');
+                    link.classList.add('hover:bg-green-50');
+                    const linkPageId = link.getAttribute('href').substring(1);
+                    const targetId = linkPageId === 'map' ? 'map-page' : linkPageId;
+                    if (targetId === pageId) {
+                        link.classList.add('bg-green-100', 'text-green-800', 'font-semibold');
+                        link.classList.remove('hover:bg-green-50');
+                    }
+                });
+            };
+
+            // Smooth fade transition
+            if (current && current !== next) {
+                current.style.opacity = '1';
+                current.style.transition = 'opacity 200ms ease';
+                requestAnimationFrame(() => {
+                    current.style.opacity = '0';
+                    setTimeout(() => {
+                        current.classList.remove('active');
+                        current.style.removeProperty('opacity');
+                        current.style.removeProperty('transition');
+
+                        // Show next and fade in
+                        next.classList.add('active');
+                        next.style.opacity = '0';
+                        next.style.transition = 'opacity 250ms ease';
+                        updateNav();
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                        requestAnimationFrame(() => {
+                            next.style.opacity = '1';
+                            setTimeout(() => {
+                                next.style.removeProperty('opacity');
+                                next.style.removeProperty('transition');
+                            }, 260);
+                        });
+                    }, 200);
+                });
+            } else {
+                pages.forEach(page => page.classList.remove('active'));
+                next.classList.add('active');
+                updateNav();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
         };
         
         navLinks.forEach(link => {
@@ -637,7 +679,8 @@
         const uploadedImage = document.getElementById('uploaded-image');
         const resultContent = document.getElementById('result-content');
         const dropZone = document.getElementById('drop-zone');
-        const learnContentWrapper = document.getElementById('learn-content-wrapper');
+    const learnContentWrapper = document.getElementById('learn-content-wrapper');
+    const aiPlanContentWrapper = document.getElementById('ai-plan-content');
     // New AI analyzer elements
     const aiCropInput = document.getElementById('ai-crop-input');
     const aiCropAnalyzeBtn = document.getElementById('ai-crop-analyze-btn');
@@ -650,31 +693,228 @@
             uploadedImage.src = '';
         };
 
-        const goToLearnPage = (diseaseKey) => {
-            const disease = diseaseDatabase[diseaseKey];
-            if (!disease) {
-                learnContentWrapper.innerHTML = `<h2 class="text-2xl font-bold mb-4">No Treatment Info</h2><p>Sorry, treatment information for this disease is not yet available.</p><a href="#detect" class="learn-back-link text-sm text-gray-500 hover:underline mt-4 block">← Back to Detection</a>`;
-                learnContentWrapper.querySelector('.learn-back-link').addEventListener('click', (e) => { e.preventDefault(); showPage('detect'); });
-                showPage('learn');
-                return;
+        const goToLearnPage = async (diseaseKey) => {
+            // Parse crop and disease from key like "Tomato___Late_blight"
+            const crop = diseaseKey.split('___')[0].replace(/[()_]/g, ' ').trim();
+            const diseaseName = diseaseKey.split('___')[1]?.replace(/_/g, ' ').trim() || '';
+
+            // Shell UI with tabs + content areas
+            learnContentWrapper.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <h2 class="text-2xl font-bold mb-2 flex items-center space-x-2">
+                        <i data-lucide="leaf" class="text-green-600"></i>
+                        <span id="guide-title-text">${crop} – ${diseaseName} Treatment Guide</span>
+                    </h2>
+                    <a href="#detect" class="learn-back-link text-sm text-gray-500 hover:underline">← Back</a>
+                </div>
+                <div id="lang-tabs" class="flex flex-wrap gap-2 mt-2 mb-4"></div>
+                <div id="plan-container" class="bg-white">
+                    <div class="p-6 bg-white rounded-xl border border-gray-200">
+                        <div class="flex items-center space-x-3"><div class="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600"></div><p id="loading-text" class="font-semibold">Preparing treatment plan…</p></div>
+                    </div>
+                </div>
+            `;
+
+            // Back link
+            learnContentWrapper.querySelector('.learn-back-link').addEventListener('click', (e) => { e.preventDefault(); showPage('detect'); });
+            showPage('learn');
+            lucide.createIcons();
+
+            // Fetch language list (with fallback)
+            let languages = [
+                { code: 'en', label: 'US English', region: 'US' },
+                { code: 'hi', label: 'हिंदी', region: 'IN' },
+                { code: 'te', label: 'తెలుగు', region: 'IN' },
+                { code: 'ta', label: 'தமிழ்', region: 'IN' },
+                { code: 'kn', label: 'ಕನ್ನಡ', region: 'IN' },
+                { code: 'ml', label: 'മലയാളം', region: 'IN' },
+                { code: 'mr', label: 'मराठी', region: 'IN' },
+                { code: 'es', label: 'Español', region: 'ES' },
+                { code: 'fr', label: 'Français', region: 'FR' },
+                { code: 'pt', label: 'Português', region: 'BR' },
+            ];
+            try {
+                const res = await fetch('/languages');
+                const data = await res.json();
+                if (Array.isArray(data?.languages) && data.languages.length) languages = data.languages;
+            } catch {}
+
+            const langTabsEl = document.getElementById('lang-tabs');
+            const planContainer = document.getElementById('plan-container');
+            const guideTitleTextEl = document.getElementById('guide-title-text');
+            const backLinkEl = learnContentWrapper.querySelector('.learn-back-link');
+
+            // i18n labels for static UI text
+            const I18N = {
+                en: { guide: 'Treatment Guide', back: 'Back', materials: 'Materials Needed', steps: 'Step-by-step Instructions', safety: 'Safety Warning', prevention: 'Prevention Tips', preparing: 'Preparing treatment plan…', translating: (c)=>`Translating to ${c.toUpperCase()}…`, loadFail: 'Could not load treatment plan from server.' },
+                hi: { guide: 'उपचार मार्गदर्शिका', back: 'वापस', materials: 'आवश्यक सामग्री', steps: 'चरण-दर-चरण निर्देश', safety: 'सुरक्षा चेतावनी', prevention: 'रोकथाम के उपाय', preparing: 'उपचार योजना तैयार की जा रही है…', translating: (c)=>`${c.toUpperCase()} में अनुवाद हो रहा है…`, loadFail: 'उपचार योजना लोड नहीं हो सकी।' },
+                te: { guide: 'చికిత్స మార్గదర్శిని', back: 'వెనక్కి', materials: 'అవసరమైన పదార్థాలు', steps: 'దశలవారీ సూచనలు', safety: 'భద్రత హెచ్చరిక', prevention: 'నివారణ చిట్కాలు', preparing: 'చికిత్స ప్రణాళిక సిద్ధం అవుతోంది…', translating: (c)=>`${c.toUpperCase()} కు అనువదిస్తోంది…`, loadFail: 'చికిత్స ప్రణాళికను లోడ్ చేయలేకపోయాము.' },
+                ta: { guide: 'சிகிச்சை வழிகாட்டி', back: 'மீண்டும்', materials: 'தேவையான பொருட்கள்', steps: 'படி படியாக வழிமுறைகள்', safety: 'பாதுகாப்பு எச்சரிக்கை', prevention: 'தடுப்பு குறிப்புகள்', preparing: 'சிகிச்சை திட்டம் தயார் செய்யப்படுகிறது…', translating: (c)=>`${c.toUpperCase()} மொழிக்கு மொழிபெயர்க்கப்படுகிறது…`, loadFail: 'சிகிச்சை திட்டத்தை ஏற்ற முடியவில்லை.' },
+                kn: { guide: 'ಚಿಕಿತ್ಸಾ ಮಾರ್ಗದರ್ಶಿ', back: 'ಹಿಂತಿರುಗಿ', materials: 'ಆವಶ್ಯಕ ವಸ್ತುಗಳು', steps: 'ಹಂತ ಹಂತದ ಸೂಚನೆಗಳು', safety: 'ಭದ್ರತಾ ಎಚ್ಚರಿಕೆ', prevention: 'ತಡೆಗಟ್ಟುವ ಸಲಹೆಗಳು', preparing: 'ಚಿಕಿತ್ಸಾ ಯೋಜನೆ ಸಿದ್ಧವಾಗುತ್ತಿದೆ…', translating: (c)=>`${c.toUpperCase()} ಗೆ ಅನುವಾದಿಸಲಾಗುತ್ತಿದೆ…`, loadFail: 'ಚಿಕಿತ್ಸಾ ಯೋಜನೆಯನ್ನು ಲೋಡ್ ಮಾಡಲಾಗಲಿಲ್ಲ.' },
+                ml: { guide: 'ചികിത്സാ ഗൈഡ്', back: 'തിരിച്ച്', materials: 'ആവശ്യമായ വസ്തുക്കൾ', steps: 'പടിപടിയായ നിർദ്ദേശങ്ങൾ', safety: 'സുരക്ഷാ മുന്നറിയിപ്പ്', prevention: 'പ്രതിരോധ നിർദ്ദേശങ്ങൾ', preparing: 'ചികിത്സാ പദ്ധതി തയ്യാറാക്കുന്നു…', translating: (c)=>`${c.toUpperCase()} ലേക്ക് വിവർത്തനം ചെയ്യുന്നു…`, loadFail: 'ചികിത്സാ പദ്ധതി ലോഡ് ചെയ്യാൻ കഴിഞ്ഞില്ല.' },
+                mr: { guide: 'उपचार मार्गदर्शक', back: 'मागे', materials: 'आवश्यक साहित्य', steps: 'टप्प्याटप्प्याने सूचना', safety: 'सुरक्षा सूचना', prevention: 'प्रतिबंध टिप्स', preparing: 'उपचार योजना तयार होत आहे…', translating: (c)=>`${c.toUpperCase()} मध्ये भाषांतर करत आहे…`, loadFail: 'उपचार योजना लोड होऊ शकली नाही.' },
+                es: { guide: 'Guía de Tratamiento', back: 'Volver', materials: 'Materiales Necesarios', steps: 'Instrucciones paso a paso', safety: 'Advertencia de seguridad', prevention: 'Consejos de prevención', preparing: 'Preparando el plan de tratamiento…', translating: (c)=>`Traduciendo a ${c.toUpperCase()}…`, loadFail: 'No se pudo cargar el plan de tratamiento.' },
+                fr: { guide: 'Guide de Traitement', back: 'Retour', materials: 'Matériel nécessaire', steps: 'Instructions étape par étape', safety: 'Avertissement de sécurité', prevention: 'Conseils de prévention', preparing: 'Préparation du plan de traitement…', translating: (c)=>`Traduction vers ${c.toUpperCase()}…`, loadFail: 'Impossible de charger le plan de traitement.' },
+                pt: { guide: 'Guia de Tratamento', back: 'Voltar', materials: 'Materiais Necessários', steps: 'Instruções passo a passo', safety: 'Aviso de segurança', prevention: 'Dicas de prevenção', preparing: 'Preparando o plano de tratamento…', translating: (c)=>`Traduzindo para ${c.toUpperCase()}…`, loadFail: 'Não foi possível carregar o plano de tratamento.' },
+            };
+            const getLabels = (code) => I18N[code] || I18N.en;
+
+            // Render tabs
+            const renderTabs = (active) => {
+                langTabsEl.innerHTML = languages.map(l => `
+                    <button data-code="${l.code}" class="inline-flex items-center px-3 py-2 rounded-lg border ${active===l.code?'bg-green-600 text-white border-green-600':'bg-gray-100 text-gray-800 border-gray-200 hover:bg-gray-200'}">
+                        <span class="text-xs mr-1">${l.region}</span> ${l.label}
+                    </button>
+                `).join('');
             };
 
-            learnContentWrapper.innerHTML = `
-                <h2 class="text-2xl font-bold mb-1 flex items-center space-x-2">
-                    <i data-lucide="leaf" class="text-green-600"></i>
-                    <span>${disease.treatmentTitle}</span>
-                </h2>
-                <a href="#detect" class="learn-back-link text-sm text-gray-500 hover:underline mb-4 block">← Back to Detection Result</a>
-                ${disease.treatmentHtml}
-            `;
-            
-            learnContentWrapper.querySelector('.learn-back-link').addEventListener('click', (e) => {
-                e.preventDefault();
-                showPage('detect');
-            });
+            // Render plan helper
+            const renderPlan = (p, labels) => {
+                const list = (arr) => Array.isArray(arr) && arr.length ? `<ul class="list-disc pl-6 space-y-1">${arr.map(x=>`<li>${x}</li>`).join('')}</ul>` : '<p class="text-gray-500">—</p>';
+                planContainer.innerHTML = `
+                    <div class="p-6 bg-white rounded-xl border border-gray-200">
+                        <h3 class="text-xl font-bold text-green-800 mb-1">${p.title || (crop+' – '+diseaseName)}</h3>
+                        ${p.summary ? `<p class="text-gray-700 mb-4">${p.summary}</p>` : ''}
+                        <div class="grid grid-cols-1 gap-4">
+                            <div class="rounded-lg p-4 bg-green-50 border border-green-200">
+                                <h4 class="font-semibold text-green-900 mb-2">${labels.materials}</h4>
+                                ${list(p.materials)}
+                            </div>
+                            <div class="rounded-lg p-4 bg-gray-50 border border-gray-200">
+                                <h4 class="font-semibold text-gray-900 mb-2">${labels.steps}</h4>
+                                ${list(p.steps)}
+                            </div>
+                            <div class="rounded-lg p-4 bg-amber-50 border border-amber-200">
+                                <h4 class="font-semibold text-amber-900 mb-2">${labels.safety}</h4>
+                                ${list(p.safety)}
+                            </div>
+                            <div class="rounded-lg p-4 bg-blue-50 border border-blue-200">
+                                <h4 class="font-semibold text-blue-900 mb-2">${labels.prevention}</h4>
+                                ${list(p.prevention)}
+                            </div>
+                            ${p.disclaimer ? `<p class="text-xs text-gray-500">${p.disclaimer}</p>` : ''}
+                        </div>
+                    </div>
+                `;
+            };
 
+            // Cache for translations
+            const cache = {};
+            let basePlan = null;
+            let activeLang = 'en';
+            renderTabs(activeLang);
+            // Localize static UI for initial language
+            const applyStaticLabels = () => {
+                const L = getLabels(activeLang);
+                if (guideTitleTextEl) guideTitleTextEl.textContent = `${crop} – ${diseaseName} ${L.guide}`;
+                if (backLinkEl) backLinkEl.textContent = `← ${L.back}`;
+                const loadingEl = document.getElementById('loading-text');
+                if (loadingEl) loadingEl.textContent = L.preparing;
+            };
+            applyStaticLabels();
+
+            // Fetch base plan (English)
+            try {
+                const resp = await fetch('/treatment', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ crop, disease: diseaseName }) });
+                const data = await resp.json();
+                basePlan = data?.plan || null;
+            } catch {}
+            if (!basePlan) {
+                const L = getLabels(activeLang);
+                planContainer.innerHTML = `<div class="p-6 bg-white rounded-xl border border-red-200 bg-red-50 text-red-700">${L.loadFail}</div>`;
+                return;
+            }
+            cache['en'] = basePlan;
+            renderPlan(basePlan, getLabels(activeLang));
             lucide.createIcons();
-            showPage('learn');
+
+            // Wire tab clicks
+            langTabsEl.addEventListener('click', async (ev) => {
+                const btn = ev.target.closest('button[data-code]');
+                if (!btn) return;
+                const code = btn.getAttribute('data-code');
+                if (code === activeLang) return;
+                activeLang = code;
+                renderTabs(activeLang);
+                applyStaticLabels();
+                if (code === 'en') { renderPlan(basePlan, getLabels(activeLang)); lucide.createIcons(); return; }
+                if (cache[code]) { renderPlan(cache[code], getLabels(activeLang)); lucide.createIcons(); return; }
+                // Show inline loader
+                const L = getLabels(activeLang);
+                planContainer.innerHTML = `<div class="p-6 bg-white rounded-xl border border-gray-200"><div class="flex items-center space-x-3"><div class=\"animate-spin rounded-full h-6 w-6 border-b-2 border-green-600\"></div><p class=\"font-semibold\">${L.translating(code)}</p></div></div>`;
+                try {
+                    const resp = await fetch('/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan: basePlan, target: code }) });
+                    const data = await resp.json();
+                    const plan = data?.plan || null;
+                    if (plan) { cache[code] = plan; renderPlan(plan, getLabels(activeLang)); } else { renderPlan(basePlan, getLabels(activeLang)); }
+                } catch { renderPlan(basePlan, getLabels(activeLang)); }
+                lucide.createIcons();
+            });
+        };
+
+        // New: Dedicated AI Plan page renderer (for the "Ask AI for Treatment" button)
+        const goToAiPlanPage = async (diseaseKey) => {
+            const crop = diseaseKey.split('___')[0].replace(/[()_]/g, ' ').trim();
+            const diseaseName = diseaseKey.split('___')[1]?.replace(/_/g, ' ').trim() || '';
+
+            aiPlanContentWrapper.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <h2 class="text-2xl font-bold mb-2 flex items-center space-x-2">
+                        <i data-lucide="sprout" class="text-emerald-600"></i>
+                        <span>${crop} – ${diseaseName} AI Treatment Plan</span>
+                    </h2>
+                    <a href="#detect" class="ai-back-link text-sm text-gray-500 hover:underline">← Back</a>
+                </div>
+                <div id="ai-plan-container" class="bg-white">
+                    <div class="p-6 bg-white rounded-xl border border-gray-200">
+                        <div class="flex items-center space-x-3"><div class="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600"></div><p class="font-semibold">Consulting AI for an organic-first treatment plan…</p></div>
+                    </div>
+                </div>
+            `;
+            aiPlanContentWrapper.querySelector('.ai-back-link').addEventListener('click', (e) => { e.preventDefault(); showPage('detect'); });
+            showPage('ai-plan');
+            lucide.createIcons();
+
+            const planContainer = document.getElementById('ai-plan-container');
+            const renderPlanSimple = (p) => {
+                const list = (arr) => Array.isArray(arr) && arr.length ? `<ul class="list-disc pl-6 space-y-1">${arr.map(x=>`<li>${x}</li>`).join('')}</ul>` : '<p class="text-gray-500">—</p>';
+                planContainer.innerHTML = `
+                    <div class="p-6 bg-white rounded-xl border border-gray-200">
+                        <h3 class="text-xl font-bold text-emerald-800 mb-1">${p.title || (crop + ' – ' + diseaseName)}</h3>
+                        ${p.summary ? `<p class="text-gray-700 mb-4">${p.summary}</p>` : ''}
+                        <div class="grid grid-cols-1 gap-4">
+                            <div class="rounded-lg p-4 bg-emerald-50 border border-emerald-200">
+                                <h4 class="font-semibold text-emerald-900 mb-2">Materials (organic-first)</h4>
+                                ${list(p.materials)}
+                            </div>
+                            <div class="rounded-lg p-4 bg-gray-50 border border-gray-200">
+                                <h4 class="font-semibold text-gray-900 mb-2">Step-by-step Instructions</h4>
+                                ${list(p.steps)}
+                            </div>
+                            <div class="rounded-lg p-4 bg-amber-50 border border-amber-200">
+                                <h4 class="font-semibold text-amber-900 mb-2">Safety</h4>
+                                ${list(p.safety)}
+                            </div>
+                            <div class="rounded-lg p-4 bg-blue-50 border border-blue-200">
+                                <h4 class="font-semibold text-blue-900 mb-2">Prevention Tips</h4>
+                                ${list(p.prevention)}
+                            </div>
+                            ${p.disclaimer ? `<p class="text-xs text-gray-500">${p.disclaimer}</p>` : ''}
+                        </div>
+                    </div>
+                `;
+                lucide.createIcons();
+            };
+
+            try {
+                const resp = await fetch('/treatment', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ crop, disease: diseaseName }) });
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const data = await resp.json();
+                if (!data.plan) throw new Error(data.error || 'No plan returned');
+                renderPlanSimple(data.plan);
+            } catch (e) {
+                planContainer.innerHTML = `<div class="p-6 bg-white rounded-xl border border-red-200 bg-red-50 text-red-700">Failed to get AI plan. Ensure the backend is running. (${e})</div>`;
+            }
         };
         
         // Initialize global crop selection variable
@@ -728,49 +968,9 @@
 
             // Wire AI Treatment fetch
             const aiBtn = document.getElementById('ai-treatment-btn');
-            const aiCard = document.getElementById('ai-treatment-card');
-            aiBtn.addEventListener('click', async () => {
-                aiCard.classList.remove('hidden');
-                aiCard.innerHTML = `<div class="flex items-center space-x-3"><div class=\"animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600\"></div><p class=\"font-semibold\">Consulting AI for an organic-first treatment plan...</p></div>`;
-                try {
-                    const crop = cropName;
-                    const disease = prediction.disease.split('___')[1].replace(/_/g, ' ');
-                    const resp = await fetch('http://127.0.0.1:5000/treatment', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ crop, disease })
-                    });
-                    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-                    const data = await resp.json();
-                    if (!data.plan) throw new Error(data.error || 'No plan returned');
-                    const p = data.plan;
-                    const list = (arr) => Array.isArray(arr) && arr.length ? `<ul class=\"list-disc pl-5 space-y-1\">${arr.map(x=>`<li>${x}</li>`).join('')}</ul>` : '<p class="text-gray-500">No details provided.</p>';
-                    aiCard.innerHTML = `
-                        <h4 class="font-bold text-emerald-800 mb-1">${p.title || 'AI Treatment Plan'}</h4>
-                        ${p.summary ? `<p class="text-gray-700 mb-3">${p.summary}</p>` : ''}
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <h5 class="font-semibold text-gray-800">Materials (organic-first)</h5>
-                                ${list(p.materials)}
-                            </div>
-                            <div>
-                                <h5 class="font-semibold text-gray-800">Safety</h5>
-                                ${list(p.safety)}
-                            </div>
-                        </div>
-                        <div class="mt-3">
-                            <h5 class="font-semibold text-gray-800">Step-by-step Instructions</h5>
-                            ${list(p.steps)}
-                        </div>
-                        <div class="mt-3">
-                            <h5 class="font-semibold text-gray-800">Prevention Tips</h5>
-                            ${list(p.prevention)}
-                        </div>
-                        ${p.disclaimer ? `<p class="text-xs text-gray-500 mt-3">${p.disclaimer}</p>` : ''}
-                    `;
-                } catch (e) {
-                    aiCard.innerHTML = `<div class="text-red-700">Failed to get AI plan. Make sure the backend is running and GEMINI_API_KEY is set. (${e})</div>`;
-                }
+            aiBtn.addEventListener('click', () => {
+                // Open a dedicated page and render the same AI plan that used to appear inline
+                goToAiPlanPage(prediction.disease);
             });
             
             // Auto-select crop in Market Intelligence
