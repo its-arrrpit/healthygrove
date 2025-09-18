@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HealthyGrove 2.0 - The Smart Farming Assistant</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Leaflet.js for Maps -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+
+    <!-- Custom Google Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            scroll-behavior: smooth;
+        }
+        /* Style for the map container */
+        #map {
+            height: 500px;
+            border-radius: 0.75rem;
+            z-index: 10;
+        }
+        /* Simple scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        .page {
+            display: none;
+        }
+        .page.active {
+            display: block;
+        }
+        .drop-zone-active {
+            border-color: #22c55e; /* green-500 */
+            background-color: #f0fdf4; /* green-50 */
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <!-- App Container -->
+    <div class="container mx-auto max-w-7xl p-4">
+
+        <!-- Header and Navigation -->
+        <header class="bg-white rounded-xl shadow-md p-4 mb-6 flex flex-col md:flex-row justify-between items-center">
+            <div class="flex items-center space-x-3 mb-4 md:mb-0">
+                <div class="bg-green-600 p-2 rounded-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-sprout"><path d="M7 20h10"/><path d="M10 20c5.5-2.5.8-6.4 3-10"/><path d="M9.5 9.4c1.1.8 1.8 2.2 1.5 3.6"/><path d="M14.5 9.4c-1.1.8-1.8 2.2-1.5 3.6"/><path d="M12 20c-3.2-4.9-3.2-10.9 0-16"/><path d="M7 16c.5-1.5 1.5-3 3-4"/></svg>
+                </div>
+                <h1 class="text-2xl font-bold text-green-700">HealthyGrove 2.0</h1>
+            </div>
+            <nav class="flex flex-wrap justify-center items-center gap-2 md:gap-4">
+                <a href="#detect" class="nav-link bg-green-100 text-green-800 font-semibold py-2 px-4 rounded-lg flex items-center space-x-2"><i data-lucide="camera"></i><span>Detect</span></a>
+                <a href="#map" class="nav-link py-2 px-4 rounded-lg flex items-center space-x-2 hover:bg-green-50"><i data-lucide="map"></i><span>Map</span></a>
+                <a href="#market" class="nav-link py-2 px-4 rounded-lg flex items-center space-x-2 hover:bg-green-50"><i data-lucide="trending-up"></i><span>Market</span></a>
+                <a href="#alerts" class="nav-link py-2 px-4 rounded-lg flex items-center space-x-2 hover:bg-green-50"><i data-lucide="bell"></i><span>Alerts</span></a>
+                <a href="#history" class="nav-link py-2 px-4 rounded-lg flex items-center space-x-2 hover:bg-green-50"><i data-lucide="history"></i><span>History</span></a>
+                <a href="#learn" class="nav-link py-2 px-4 rounded-lg flex items-center space-x-2 hover:bg-green-50"><i data-lucide="book-open"></i><span>Learn</span></a>
+            </nav>
+        </header>
+
+        <!-- Main Content Area -->
+        <main>
+            <!-- Page: Disease Detection -->
+            <div id="detect" class="page active">
+                <div class="bg-white p-6 rounded-xl shadow-md">
+                    <h2 class="text-2xl font-bold mb-4 flex items-center space-x-2">
+                        <i data-lucide="scan-line" class="text-green-600"></i>
+                        <span>AI-Powered Disease & Crop Detection</span>
+                    </h2>
+                    <p class="text-gray-600 mb-2">Upload a plant leaf photo to detect <span class="font-semibold text-green-700">disease</span> and <span class="font-semibold text-green-700">crop type</span>.</p>
+                    <div id="drop-zone" class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center transition-colors duration-300">
+                        <input type="file" id="image-upload" class="hidden" accept="image/*">
+                        <button id="upload-button" class="bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 transition duration-300 flex items-center mx-auto space-x-2">
+                            <i data-lucide="upload"></i>
+                            <span>Choose an Image</span>
+                        </button>
+                        <p class="mt-4 text-sm text-gray-500">or drag and drop it here</p>
+                    </div>
+
+                    <div id="detection-result" class="mt-6 hidden">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                            <div>
+                                <h3 class="font-bold text-lg mb-2">Uploaded Image:</h3>
+                                <img id="uploaded-image" src="" alt="Uploaded Plant Leaf" class="rounded-lg shadow-sm max-h-80 w-auto mx-auto md:mx-0">
+                                
+                                <div class="mt-4 bg-gray-50 p-4 rounded-lg">
+                                    <h4 class="font-semibold mb-2">Specify Crop Type (Optional):</h4>
+                                    <div class="flex flex-wrap gap-2 mb-3">
+                                        <button class="crop-type-btn px-3 py-1 border rounded-full hover:bg-green-50" data-crop="Tomato">Tomato</button>
+                                        <button class="crop-type-btn px-3 py-1 border rounded-full hover:bg-green-50" data-crop="Potato">Potato</button>
+                                        <button class="crop-type-btn px-3 py-1 border rounded-full hover:bg-green-50" data-crop="Corn">Corn</button>
+                                        <button class="crop-type-btn px-3 py-1 border rounded-full hover:bg-green-50" data-crop="Rice">Rice</button>
+                                        <button class="crop-type-btn px-3 py-1 border rounded-full hover:bg-green-50" data-crop="Wheat">Wheat</button>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="text" id="custom-crop-input" placeholder="Or type crop name here..." class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">
+                                        <button id="set-crop-btn" class="ml-2 bg-green-600 text-white px-3 py-2 rounded-md hover:bg-green-700">Set</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="result-content" class="bg-gray-50 p-4 rounded-lg">
+                                <!-- Loading/Result content goes here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Page: Disease Map -->
+            <div id="map-page" class="page">
+                <div class="bg-white p-6 rounded-xl shadow-md">
+                    <h2 class="text-2xl font-bold mb-4 flex items-center space-x-2">
+                        <i data-lucide="map-pin" class="text-blue-600"></i>
+                        <span>Community Disease Map</span>
+                    </h2>
+                    <p class="text-gray-600 mb-6">See real-time, geotagged disease outbreaks reported by other farmers in your area. Stay ahead of potential threats.</p>
+                    <div id="map" class="w-full h-[500px]"></div>
+                    
+                    <!-- Map Alerts Section -->
+                    <div class="mt-6">
+                        <h3 class="font-bold text-lg mb-4 flex items-center">
+                            <i data-lucide="alert-triangle" class="text-orange-500 mr-2"></i>
+                            Nearby Disease Alerts
+                        </h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="border border-gray-200 rounded-lg p-4 bg-red-50">
+                                <div class="flex items-center mb-2">
+                                    <span class="inline-flex items-center px-2 py-1 rounded text-white bg-red-500 text-xs font-medium mr-2">
+                                        <i data-lucide="alert-triangle" class="h-3 w-3 mr-1"></i>High
+                                    </span>
+                                    <span class="font-semibold">30 km away</span>
+                                </div>
+                                <h4 class="font-bold">Late Blight in Potato</h4>
+                                <p class="text-gray-700 my-1 text-sm">Farmers advised to apply preventive fungicides immediately.</p>
+                                <div class="flex justify-between items-center text-gray-500 text-xs mt-2">
+                                    <span>Punjab • 9/18/2025</span>
+                                    <button class="view-on-map-btn text-blue-600 hover:underline flex items-center" data-lat="30.733" data-lng="76.779">
+                                        <i data-lucide="navigation" class="h-3 w-3 mr-1"></i>View on map
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="border border-gray-200 rounded-lg p-4 bg-yellow-50">
+                                <div class="flex items-center mb-2">
+                                    <span class="inline-flex items-center px-2 py-1 rounded text-white bg-yellow-500 text-xs font-medium mr-2">
+                                        <i data-lucide="alert-circle" class="h-3 w-3 mr-1"></i>Medium
+                                    </span>
+                                    <span class="font-semibold">45 km away</span>
+                                </div>
+                                <h4 class="font-bold">Powdery Mildew in Wheat</h4>
+                                <p class="text-gray-700 my-1 text-sm">Monitor crops closely and maintain field hygiene.</p>
+                                <div class="flex justify-between items-center text-gray-500 text-xs mt-2">
+                                    <span>Haryana • 9/15/2025</span>
+                                    <button class="view-on-map-btn text-blue-600 hover:underline flex items-center" data-lat="29.058" data-lng="76.085">
+                                        <i data-lucide="navigation" class="h-3 w-3 mr-1"></i>View on map
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="text-center mt-4">
+                            <a href="#alerts" class="inline-flex items-center text-blue-600 hover:underline alerts-link">
+                                View all active disease alerts
+                                <i data-lucide="arrow-right" class="h-4 w-4 ml-1"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Page: Market Intelligence -->
+            <div id="market" class="page">
+                <div class="bg-white p-6 rounded-xl shadow-md">
+                    <h2 class="text-2xl font-bold mb-4 flex items-center space-x-2">
+                        <i data-lucide="bar-chart-2" class="text-purple-600"></i>
+                        <span>Market Intelligence Engine</span>
+                    </h2>
+                    <p class="text-gray-600 mb-6">Get data-driven advice on the best time and place to sell your crops to maximize your profit and avoid oversupply.</p>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <div>
+                            <label for="crop-select" class="block text-sm font-medium text-gray-700">Select Crop</label>
+                            <select id="crop-select" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm rounded-md">
+                                <option>Tomato</option>
+                                <option>Potato</option>
+                                <option>Wheat</option>
+                                <option>Rice</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="location-select" class="block text-sm font-medium text-gray-700">Select Location</label>
+                            <select id="location-select" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm rounded-md">
+                                <option>Bengaluru, KA</option>
+                                <option>Pune, MH</option>
+                                <option>Ludhiana, PB</option>
+                            </select>
+                        </div>
+                         <button id="analyze-market-btn" class="self-end bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition">Analyze</button>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="lg:col-span-2 bg-gray-50 p-4 rounded-lg">
+                            <h3 class="font-bold mb-4">Market Prices (per Quintal)</h3>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left">
+                                    <thead class="bg-gray-200">
+                                        <tr>
+                                            <th class="p-2 rounded-l-lg">Market (Mandi)</th>
+                                            <th class="p-2">Price</th>
+                                            <th class="p-2 rounded-r-lg">Trend</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="market-table-body">
+                                        <!-- Dynamic rows will be inserted here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div id="market-recommendation" class="bg-green-100 text-green-900 p-4 rounded-lg flex flex-col justify-center">
+                            <!-- Dynamic recommendation will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Page: Alerts -->
+            <div id="alerts" class="page">
+                <div class="bg-white p-6 rounded-xl shadow-md">
+                    <h2 class="text-2xl font-bold mb-4 flex items-center space-x-2">
+                        <i data-lucide="bell" class="text-orange-600"></i>
+                        <span>Active Disease Alerts</span>
+                        <span class="ml-2 text-sm font-normal bg-orange-100 text-orange-800 py-1 px-2 rounded-full">22 active alerts</span>
+                    </h2>
+                    <p class="text-gray-600 mb-6">Stay informed about disease outbreaks in your region to take preventive actions.</p>
+                    
+                    <div class="space-y-4">
+                        <!-- High Alert -->
+                        <div class="border border-gray-200 rounded-lg p-4">
+                            <div class="flex items-center mb-2">
+                                <span class="inline-flex items-center px-2 py-1 rounded text-white bg-red-500 text-xs font-medium mr-2">
+                                    <i data-lucide="alert-triangle" class="h-3 w-3 mr-1"></i>High
+                                </span>
+                                <span class="font-semibold">Punjab</span>
+                            </div>
+                            <h3 class="font-bold text-lg">Late Blight in Potato</h3>
+                            <p class="text-gray-700 my-2">Late blight outbreak detected in multiple potato fields. Farmers advised to apply preventive fungicides immediately.</p>
+                            <div class="flex items-center text-gray-500 text-sm mt-2">
+                                <span class="flex items-center mr-4"><i data-lucide="calendar" class="h-4 w-4 mr-1"></i>Reported: 9/18/2025</span>
+                                <span class="flex items-center"><i data-lucide="map-pin" class="h-4 w-4 mr-1"></i>30.733, 76.779</span>
+                            </div>
+                        </div>
+
+                        <!-- Critical Alert -->
+                        <div class="border border-gray-200 rounded-lg p-4">
+                            <div class="flex items-center mb-2">
+                                <span class="inline-flex items-center px-2 py-1 rounded text-white bg-purple-600 text-xs font-medium mr-2">
+                                    <i data-lucide="alert-octagon" class="h-3 w-3 mr-1"></i>Critical
+                                </span>
+                                <span class="font-semibold">West Bengal</span>
+                            </div>
+                            <h3 class="font-bold text-lg">Bacterial Blight in Rice</h3>
+                            <p class="text-gray-700 my-2">Severe bacterial blight affecting rice crops across 3 districts. Emergency response measures activated.</p>
+                            <div class="flex items-center text-gray-500 text-sm mt-2">
+                                <span class="flex items-center mr-4"><i data-lucide="calendar" class="h-4 w-4 mr-1"></i>Reported: 9/18/2025</span>
+                                <span class="flex items-center"><i data-lucide="map-pin" class="h-4 w-4 mr-1"></i>22.573, 88.364</span>
+                            </div>
+                        </div>
+
+                        <!-- Medium Alert -->
+                        <div class="border border-gray-200 rounded-lg p-4">
+                            <div class="flex items-center mb-2">
+                                <span class="inline-flex items-center px-2 py-1 rounded text-white bg-yellow-500 text-xs font-medium mr-2">
+                                    <i data-lucide="alert-circle" class="h-3 w-3 mr-1"></i>Medium
+                                </span>
+                                <span class="font-semibold">Haryana</span>
+                            </div>
+                            <h3 class="font-bold text-lg">Powdery Mildew in Wheat</h3>
+                            <p class="text-gray-700 my-2">Moderate powdery mildew infection observed. Monitor crops closely and maintain field hygiene.</p>
+                            <div class="flex items-center text-gray-500 text-sm mt-2">
+                                <span class="flex items-center mr-4"><i data-lucide="calendar" class="h-4 w-4 mr-1"></i>Reported: 9/15/2025</span>
+                                <span class="flex items-center"><i data-lucide="map-pin" class="h-4 w-4 mr-1"></i>29.058, 76.085</span>
+                            </div>
+                        </div>
+
+                        <div class="text-center mt-4">
+                            <button id="view-all-alerts" class="bg-orange-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-orange-700 transition">View All 22 Alerts</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Page: Diagnosis History -->
+            <div id="history" class="page">
+                <div class="bg-white p-6 rounded-xl shadow-md">
+                    <h2 class="text-2xl font-bold mb-4 flex items-center space-x-2">
+                        <i data-lucide="history" class="text-indigo-600"></i>
+                        <span>Diagnosis History</span>
+                    </h2>
+                    <p class="text-gray-600 mb-6">Review your past crop disease diagnoses and track patterns over time.</p>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <div class="bg-blue-50 p-4 rounded-lg flex items-center space-x-4">
+                            <div class="bg-blue-100 p-3 rounded-full">
+                                <i data-lucide="camera" class="h-6 w-6 text-blue-600"></i>
+                            </div>
+                            <div>
+                                <div class="text-sm text-gray-600">Total Diagnoses</div>
+                                <div class="text-2xl font-bold">5</div>
+                            </div>
+                        </div>
+                        <div class="bg-green-50 p-4 rounded-lg flex items-center space-x-4">
+                            <div class="bg-green-100 p-3 rounded-full">
+                                <i data-lucide="trending-up" class="h-6 w-6 text-green-600"></i>
+                            </div>
+                            <div>
+                                <div class="text-sm text-gray-600">High Confidence</div>
+                                <div class="text-2xl font-bold">4</div>
+                            </div>
+                        </div>
+                        <div class="bg-yellow-50 p-4 rounded-lg flex items-center space-x-4">
+                            <div class="bg-yellow-100 p-3 rounded-full">
+                                <i data-lucide="calendar" class="h-6 w-6 text-yellow-600"></i>
+                            </div>
+                            <div>
+                                <div class="text-sm text-gray-600">This Month</div>
+                                <div class="text-2xl font-bold">5</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 class="font-bold text-xl mb-4 mt-6">Recent Diagnoses</h3>
+                    <div class="space-y-4">
+                        <div class="border border-gray-200 rounded-lg flex items-center p-4">
+                            <img src="https://placehold.co/100x100/e2e8f0/333?text=Leaf+Image" class="w-20 h-20 object-cover rounded-md mr-4" alt="Diseased leaf image">
+                            <div class="flex-grow">
+                                <h4 class="font-bold">Early Blight</h4>
+                                <div class="text-sm text-gray-600">potato • 9/18/2025</div>
+                            </div>
+                            <div class="text-right">
+                                <span class="bg-yellow-100 text-yellow-800 py-1 px-2 rounded-full text-xs font-medium">Medium (76%)</span>
+                            </div>
+                        </div>
+                        
+                        <div class="border border-gray-200 rounded-lg flex items-center p-4">
+                            <img src="https://placehold.co/100x100/e2e8f0/333?text=Leaf+Image" class="w-20 h-20 object-cover rounded-md mr-4" alt="Diseased leaf image">
+                            <div class="flex-grow">
+                                <h4 class="font-bold">Powdery Mildew</h4>
+                                <div class="text-sm text-gray-600">potato • 9/18/2025</div>
+                            </div>
+                            <div class="text-right">
+                                <span class="bg-green-100 text-green-800 py-1 px-2 rounded-full text-xs font-medium">High (82%)</span>
+                            </div>
+                        </div>
+                        
+                        <div class="border border-gray-200 rounded-lg flex items-center p-4">
+                            <img src="https://placehold.co/100x100/e2e8f0/333?text=Leaf+Image" class="w-20 h-20 object-cover rounded-md mr-4" alt="Diseased leaf image">
+                            <div class="flex-grow">
+                                <h4 class="font-bold">Late Blight</h4>
+                                <div class="text-sm text-gray-600">tomato • 9/17/2025</div>
+                            </div>
+                            <div class="text-right">
+                                <span class="bg-green-100 text-green-800 py-1 px-2 rounded-full text-xs font-medium">High (92%)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Page: Learning Center -->
+            <div id="learn" class="page">
+                 <div id="learn-content-wrapper" class="bg-white p-6 rounded-xl shadow-md">
+                    <!-- Dynamic content will be injected here -->
+                </div>
+            </div>
+        </main>
+
+        <!-- Chatbot -->
+        <div id="chatbot-container" class="fixed bottom-5 right-5 z-50">
+            <button id="chatbot-toggle" class="bg-green-600 text-white rounded-full p-4 shadow-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                <i data-lucide="message-circle" id="chat-open-icon"></i>
+                <i data-lucide="x" id="chat-close-icon" class="hidden"></i>
+            </button>
+            <div id="chatbot-window" class="hidden absolute bottom-20 right-0 w-80 bg-white rounded-xl shadow-2xl border border-gray-200 flex flex-col">
+                <div class="p-4 bg-green-600 text-white rounded-t-xl">
+                    <h3 class="font-bold">AI Farming Coach</h3>
+                    <p class="text-sm opacity-90">Ask me about treatments!</p>
+                </div>
+                <div id="chat-messages" class="flex-1 p-4 space-y-4 h-80 overflow-y-auto">
+                    <!-- Chat messages will be appended here -->
+                    <div class="flex">
+                        <div class="bg-gray-200 text-gray-800 p-3 rounded-lg max-w-xs">
+                           Hello! How can I help you today? Ask me for "treatment" advice.
+                        </div>
+                    </div>
+                </div>
+                <div class="p-2 border-t flex">
+                    <input type="text" id="chat-input" placeholder="Type a message..." class="w-full px-3 py-2 border rounded-l-md focus:outline-none focus:ring-2 focus:ring-green-500">
+                    <button id="chat-send" class="bg-green-600 text-white px-4 rounded-r-md hover:bg-green-700">Send</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- LUCIDE ICONS INITIALIZATION ---
+        lucide.createIcons();
+
+        // --- PAGE NAVIGATION LOGIC ---
+        const navLinks = document.querySelectorAll('.nav-link');
+        const pages = document.querySelectorAll('.page');
+        
+        const showPage = (pageId) => {
+            pages.forEach(page => {
+                page.classList.remove('active');
+                if (page.id === pageId) {
+                    page.classList.add('active');
+                }
+            });
+
+            navLinks.forEach(link => {
+                link.classList.remove('bg-green-100', 'text-green-800', 'font-semibold');
+                link.classList.add('hover:bg-green-50');
+                const linkPageId = link.getAttribute('href').substring(1);
+                const targetId = linkPageId === 'map' ? 'map-page' : linkPageId;
+                if (targetId === pageId) {
+                    link.classList.add('bg-green-100', 'text-green-800', 'font-semibold');
+                    link.classList.remove('hover:bg-green-50');
+                }
+            });
+            window.scrollTo(0, 0);
+        };
+        
+        navLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const pageId = link.getAttribute('href').substring(1);
+                const targetId = pageId === 'map' ? 'map-page' : pageId;
+                showPage(targetId);
+                
+                // Initialize map if navigating to map page
+                if(targetId === 'map-page' && map) {
+                    setTimeout(() => map.invalidateSize(), 10);
+                }
+            });
+        });
+        
+        // --- MOCK DATA STORE (ALIGNED WITH THE GITHUB REPO MODEL) ---
+        const diseaseDatabase = {
+            "Potato___Early_blight": {
+                confidence: "95%",
+                description: "A common fungal disease causing dark lesions on lower leaves. Often appears in humid weather.",
+                treatmentTitle: "Actionable Guidance: Potato Early Blight",
+                treatmentHtml: `
+                    <p class="text-gray-600 mb-6">This disease can reduce yield. Follow these IPM steps for control.</p>
+                    <div class="space-y-4">
+                        <div class="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg"><div class="text-3xl font-bold text-green-600">1</div><img src="https://placehold.co/100x100/e2e8f0/333?text=Improve+Airflow" alt="Pruning for airflow" class="w-24 h-24 rounded-md object-cover"><div><h3 class="font-bold">Improve Air Circulation</h3><p>Prune some lower branches to allow air to move freely through the plants, which helps leaves dry faster.</p></div></div>
+                        <div class="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg"><div class="text-3xl font-bold text-green-600">2</div><img src="https://placehold.co/100x100/e2e8f0/333?text=Water+Soil" alt="Watering at the base of the plant" class="w-24 h-24 rounded-md object-cover"><div><h3 class="font-bold">Water at the Base</h3><p>Avoid overhead watering. Water the soil directly at the base of the plant to keep the leaves dry.</p></div></div>
+                        <div class="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg"><div class="text-3xl font-bold text-green-600">3</div><img src="https://placehold.co/100x100/e2e8f0/333?text=Baking+Soda" alt="Mixing baking soda spray" class="w-24 h-24 rounded-md object-cover"><div><h3 class="font-bold">Use Baking Soda Spray</h3><p>As a preventative, mix <strong class="font-semibold">1 tablespoon of baking soda</strong> with <strong class="font-semibold">4 liters of water</strong> and a teaspoon of soap. Spray weekly.</p></div></div>
+                    </div>`
+            },
+            "Tomato___Late_blight": {
+                confidence: "92%",
+                description: "A common fungal disease that can spread quickly. Prompt action is recommended.",
+                treatmentTitle: "Actionable Guidance: Tomato Late Blight",
+                treatmentHtml: `
+                    <p class="text-gray-600 mb-6">Follow these low-cost, Integrated Pest Management (IPM) steps. All instructions are quantified and easy to follow.</p>
+                    <div class="space-y-4">
+                        <div class="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg"><div class="text-3xl font-bold text-green-600">1</div><img src="https://placehold.co/100x100/e2e8f0/333?text=Remove+Leaves" alt="Removing infected leaves" class="w-24 h-24 rounded-md object-cover"><div><h3 class="font-bold">Remove Infected Leaves</h3><p>Carefully remove and destroy the 3-4 lowest leaves showing signs of infection. Do not compost them.</p></div></div>
+                        <div class="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg"><div class="text-3xl font-bold text-green-600">2</div><img src="https://placehold.co/100x100/e2e8f0/333?text=Neem+Oil+Mix" alt="Mixing neem oil" class="w-24 h-24 rounded-md object-cover"><div><h3 class="font-bold">Prepare Neem Oil Spray</h3><p>Mix <strong class="font-semibold">10 grams of Neem seed powder</strong> with <strong class="font-semibold">10 liters of water</strong>. Add a small amount of soap to help it mix.</p></div></div>
+                        <div class="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg"><div class="text-3xl font-bold text-green-600">3</div><img src="https://placehold.co/100x100/e2e8f0/333?text=Spray+Plant" alt="Spraying plant in evening" class="w-24 h-24 rounded-md object-cover"><div><h3 class="font-bold">Apply in the Evening</h3><p>Spray the entire plant with the solution, especially the underside of the leaves. Apply in the late evening to avoid leaf burn.</p></div></div>
+                        <div class="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg"><div class="text-3xl font-bold text-green-600">4</div><img src="https://placehold.co/100x100/e2e8f0/333?text=Monitor" alt="Monitoring for new spots" class="w-24 h-24 rounded-md object-cover"><div><h3 class="font-bold">Monitor and Wait</h3><p>Wait <strong class="font-semibold">7 days</strong>. Check the plant every day for new spots. Re-apply the spray if the disease continues to spread.</p></div></div>
+                    </div>`
+            },
+            "Tomato___Leaf_Mold": {
+                confidence: "89%",
+                description: "Fungal disease that appears as yellow spots on upper leaf surfaces and velvety patches on the lower surfaces.",
+                treatmentTitle: "Actionable Guidance: Tomato Leaf Mold",
+                treatmentHtml: `
+                    <p class="text-gray-600 mb-6">Leaf mold thrives in high humidity. Control is focused on managing the environment.</p>
+                     <div class="space-y-4">
+                        <div class="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg"><div class="text-3xl font-bold text-green-600">1</div><img src="https://placehold.co/100x100/e2e8f0/333?text=Increase+Ventilation" alt="Greenhouse ventilation" class="w-24 h-24 rounded-md object-cover"><div><h3 class="font-bold">Increase Ventilation</h3><p>Improve air flow around plants by spacing them apart and pruning lower leaves. Use fans in greenhouses.</p></div></div>
+                        <div class="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg"><div class="text-3xl font-bold text-green-600">2</div><img src="https://placehold.co/100x100/e2e8f0/333?text=Morning+Watering" alt="Watering plants in the morning" class="w-24 h-24 rounded-md object-cover"><div><h3 class="font-bold">Water in the Morning</h3><p>Water plants early in the day so that the leaves have plenty of time to dry before nightfall.</p></div></div>
+                        <div class="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg"><div class="text-3xl font-bold text-green-600">3</div><img src="https://placehold.co/100x100/e2e8f0/333?text=Milk+Spray" alt="Milk spray" class="w-24 h-24 rounded-md object-cover"><div><h3 class="font-bold">Apply Milk Spray</h3><p>A simple organic fungicide can be made by mixing <strong class="font-semibold">1 part milk with 9 parts water</strong>. Spray on leaves weekly.</p></div></div>
+                    </div>`
+            },
+            "Corn_(maize)___Common_rust_": {
+                confidence: "94%",
+                description: "Characterized by reddish-brown pustules on both upper and lower leaf surfaces.",
+                treatmentTitle: "Actionable Guidance: Corn Common Rust",
+                treatmentHtml: `
+                    <p class="text-gray-600 mb-6">Common rust is usually minor but can be managed with these steps.</p>
+                     <div class="space-y-4">
+                        <div class="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg"><div class="text-3xl font-bold text-green-600">1</div><img src="https://placehold.co/100x100/e2e8f0/333?text=Resistant+Hybrids" alt="Resistant corn seeds" class="w-24 h-24 rounded-md object-cover"><div><h3 class="font-bold">Plant Resistant Hybrids</h3><p>The most effective method is to plant corn hybrids that are known to be resistant to common rust.</p></div></div>
+                        <div class="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg"><div class="text-3xl font-bold text-green-600">2</div><img src="https://placehold.co/100x100/e2e8f0/333?text=Manage+Weeds" alt="Removing weeds from field" class="w-24 h-24 rounded-md object-cover"><div><h3 class="font-bold">Control Alternative Hosts</h3><p>Remove nearby oxalis (wood sorrel) weeds, which can be an alternative host for the rust fungus.</p></div></div>
+                     </div>`
+            },
+        };
+
+        // --- DISEASE DETECTION LOGIC ---
+        const imageUpload = document.getElementById('image-upload');
+        const uploadButton = document.getElementById('upload-button');
+        const detectionResultDiv = document.getElementById('detection-result');
+        const uploadedImage = document.getElementById('uploaded-image');
+        const resultContent = document.getElementById('result-content');
+        const dropZone = document.getElementById('drop-zone');
+        const learnContentWrapper = document.getElementById('learn-content-wrapper');
+
+        const resetDetectionUI = () => {
+            detectionResultDiv.classList.add('hidden');
+            dropZone.classList.remove('hidden');
+            imageUpload.value = ''; // Clear file input
+            uploadedImage.src = '';
+        };
+
+        const goToLearnPage = (diseaseKey) => {
+            const disease = diseaseDatabase[diseaseKey];
+            if (!disease) {
+                learnContentWrapper.innerHTML = `<h2 class="text-2xl font-bold mb-4">No Treatment Info</h2><p>Sorry, treatment information for this disease is not yet available.</p><a href="#detect" class="learn-back-link text-sm text-gray-500 hover:underline mt-4 block">← Back to Detection</a>`;
+                learnContentWrapper.querySelector('.learn-back-link').addEventListener('click', (e) => { e.preventDefault(); showPage('detect'); });
+                showPage('learn');
+                return;
+            };
+
+            learnContentWrapper.innerHTML = `
+                <h2 class="text-2xl font-bold mb-1 flex items-center space-x-2">
+                    <i data-lucide="leaf" class="text-green-600"></i>
+                    <span>${disease.treatmentTitle}</span>
+                </h2>
+                <a href="#detect" class="learn-back-link text-sm text-gray-500 hover:underline mb-4 block">← Back to Detection Result</a>
+                ${disease.treatmentHtml}
+            `;
+            
+            learnContentWrapper.querySelector('.learn-back-link').addEventListener('click', (e) => {
+                e.preventDefault();
+                showPage('detect');
+            });
+
+            lucide.createIcons();
+            showPage('learn');
+        };
+        
+        // Initialize global crop selection variable
+        window.selectedCrop = '';
+        
+        // Function to reprocess current image with selected crop
+        const processImageWithCrop = () => {
+            if (uploadedImage.src && !dropZone.classList.contains('hidden')) {
+                // Get the current file from the input
+                const fileInput = document.getElementById('image-upload');
+                if (fileInput.files.length > 0) {
+                    const file = fileInput.files[0];
+                    originalHandleFile(file);
+                }
+            }
+        };
+
+        const displayPredictionResult = (prediction) => {
+            const resultData = diseaseDatabase[prediction.disease];
+            const cropName = prediction.disease.split('___')[0].replace(/_/g, ' ');
+
+            if (!resultData) {
+                resultContent.innerHTML = `<h3 class="font-bold text-lg mb-2">Analysis Complete</h3><p>Could not find detailed information for the predicted disease: <strong>${prediction.disease}</strong>.</p><button id="reupload-btn" class="w-full bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-300 transition mt-4">Detect Another</button>`;
+                document.getElementById('reupload-btn').addEventListener('click', resetDetectionUI);
+                return;
+            }
+
+            resultContent.innerHTML = `
+                <h3 class="font-bold text-lg mb-2">Analysis Complete</h3>
+                <div class="bg-white p-4 rounded-lg shadow-inner space-y-3">
+                    <div class="flex justify-between items-center"><span class="font-semibold">Detected Crop:</span><span class="font-bold text-gray-800">${cropName}</span></div>
+                    <div class="flex justify-between items-center"><span class="font-semibold">Diagnosis:</span><span class="font-bold text-red-600">${prediction.disease.split('___')[1].replace(/_/g, ' ')}</span></div>
+                    <div class="flex justify-between items-center"><span class="font-semibold">Confidence:</span><span class="font-bold text-green-700">${resultData.confidence}</span></div>
+                    <p class="text-sm text-gray-600 pt-2">${resultData.description}</p>
+                    <button class="view-treatment-btn w-full bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition mt-4">View Treatment Plan</button>
+                    <div class="pt-4 text-center">
+                        <p class="text-sm font-semibold mb-2">Was this diagnosis helpful?</p>
+                        <div class="flex justify-center space-x-4">
+                            <button class="bg-green-100 text-green-800 p-2 rounded-full hover:bg-green-200"><i data-lucide="thumbs-up"></i></button>
+                            <button class="bg-red-100 text-red-800 p-2 rounded-full hover:bg-red-200"><i data-lucide="thumbs-down"></i></button>
+                        </div>
+                    </div>
+                    <button id="reupload-btn" class="w-full bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-300 transition mt-2">Detect Another</button>
+                </div>
+            `;
+            lucide.createIcons();
+            resultContent.querySelector('.view-treatment-btn').addEventListener('click', () => goToLearnPage(prediction.disease));
+            document.getElementById('reupload-btn').addEventListener('click', resetDetectionUI);
+            
+            // Auto-select crop in Market Intelligence
+            const cropSelect = document.getElementById('crop-select');
+            for (let i = 0; i < cropSelect.options.length; i++) {
+                if (cropSelect.options[i].text.toLowerCase() === cropName.toLowerCase()) {
+                    cropSelect.selectedIndex = i;
+                    // Trigger analysis
+                    document.getElementById('analyze-market-btn').click();
+                    break;
+                }
+            }
+        };
+
+        // --- FUNCTION TO CALL THE BACKEND ---
+        async function predictDisease(imageFile, cropName = '') {
+            const formData = new FormData();
+            formData.append('file', imageFile);
+            
+            // Add crop name if provided
+            if (cropName) {
+                formData.append('crop_name', cropName);
+                console.log(`Sending crop name to backend: ${cropName}`);
+            }
+
+            // --- REAL BACKEND CODE (for when your Flask server is running) ---
+            const BACKEND_URL = 'http://127.0.0.1:5000/predict'; // URL of your Flask server
+            try {
+                const response = await fetch(BACKEND_URL, {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                return data; // e.g., { "disease": "Tomato___Late_blight", "confidence": "95%" }
+            } catch (error) {
+                console.error("Error calling the backend:", error);
+                return { error: "Could not connect to the prediction server." };
+            }
+            
+            /* 
+            // --- SIMULATED BACKEND (for demonstration purposes) ---
+            console.log("Simulating backend call...");
+            return new Promise(resolve => {
+                setTimeout(() => {
+                    // Filter predictions based on crop name if provided
+                    let possiblePredictions = Object.keys(diseaseDatabase);
+                    if (cropName) {
+                        const matchingPredictions = possiblePredictions.filter(p => 
+                            p.toLowerCase().startsWith(cropName.toLowerCase()));
+                        if (matchingPredictions.length > 0) {
+                            possiblePredictions = matchingPredictions;
+                        }
+                    }
+                    
+                    const randomPrediction = possiblePredictions[Math.floor(Math.random() * possiblePredictions.length)];
+                    console.log("Simulated response:", randomPrediction);
+                    resolve({ 
+                        disease: randomPrediction,
+                        confidence: Math.floor(Math.random() * 25 + 75) + "%",
+                        specified_crop: !!cropName
+                    });
+                }, 2500);
+            });
+            */
+        }
+        
+        const originalHandleFile = (file) => {
+            if (file && file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    uploadedImage.src = e.target.result;
+                    detectionResultDiv.classList.remove('hidden');
+                    dropZone.classList.add('hidden'); // Hide drop zone
+                    
+                    // Get the selected crop (if any)
+                    const cropName = window.selectedCrop || '';
+                    
+                    resultContent.innerHTML = `
+                        <div class="flex flex-col items-center justify-center h-full text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+                            <p class="mt-4 font-semibold">Contacting AI Server...</p>
+                            <p class="text-sm text-gray-500">Your image${cropName ? ' of ' + cropName : ''} is being analyzed by the model.</p>
+                        </div>
+                    `;
+
+                    const predictionResult = await predictDisease(file, cropName);
+                    
+                    if (predictionResult.error) {
+                         resultContent.innerHTML = `<h3 class="font-bold text-lg mb-2 text-red-600">Connection Error</h3><p>${predictionResult.error}</p><p class="text-sm mt-2">Please ensure the backend server is running correctly.</p><button id="reupload-btn" class="w-full bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-300 transition mt-4">Try Again</button>`;
+                         document.getElementById('reupload-btn').addEventListener('click', resetDetectionUI);
+                    } else {
+                        displayPredictionResult(predictionResult);
+                    }
+                }
+                reader.readAsDataURL(file);
+            }
+        };
+        
+        // Set the initial handler
+        let handleFile = originalHandleFile;
+
+        uploadButton.addEventListener('click', () => imageUpload.click());
+        imageUpload.addEventListener('change', (event) => handleFile(event.target.files[0]));
+
+        // Drag and Drop Listeners
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('drop-zone-active');
+        });
+        dropZone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drop-zone-active');
+        });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drop-zone-active');
+            const file = e.dataTransfer.files[0];
+            handleFile(file);
+        });
+
+        // --- MAP LOGIC ---
+        const outbreakData = [
+            { lat: 12.9716, lng: 77.5946, name: "Tomato Late Blight", severity: "High", reports: 12 },
+            { lat: 12.98, lng: 77.6, name: "Potato Early Blight", severity: "Medium", reports: 5 },
+            { lat: 12.95, lng: 77.62, name: "Corn Common Rust", severity: "Low", reports: 2 },
+            { lat: 13.0, lng: 77.58, name: "Tomato Leaf Mold", severity: "Medium", reports: 8 },
+        ];
+        let map;
+        const initializeMap = () => {
+            if(document.getElementById('map') && !map) {
+                 map = L.map('map').setView([12.9716, 77.5946], 12);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+                outbreakData.forEach(data => {
+                    const color = data.severity === "High" ? "red" : data.severity === "Medium" ? "orange" : "green";
+                     const circle = L.circle([data.lat, data.lng], { color, fillColor: color, fillOpacity: 0.5, radius: data.reports * 50 }).addTo(map);
+                    circle.bindPopup(`<strong style="font-size: 1.1em;">${data.name}</strong><br><strong>Severity:</strong> ${data.severity}<br><strong>Reports:</strong> ${data.reports}`);
+                });
+            }
+        };
+        const observer = new MutationObserver((mutations) => {
+            if (document.getElementById('map-page').classList.contains('active')) {
+                setTimeout(() => { initializeMap(); map.invalidateSize(); }, 10);
+            }
+        });
+        observer.observe(document.getElementById('map-page'), { attributes: true, attributeFilter: ['class'] });
+
+        // --- MARKET INTELLIGENCE LOGIC ---
+        const marketData = {
+            // Tomato data for all locations
+            "Tomato-Bengaluru, KA": { prices: [ { market: "KR Market, Bengaluru", price: 2150, trend: 2.4, trendDir: 'up' }, { market: "Yeshwanthpur APMC, Bengaluru", price: 2110, trend: -0.5, trendDir: 'down' }, { market: "Hosur Market, TN", price: 2230, trend: 3.1, trendDir: 'up' } ], recommendation: "Oversupply expected at Yeshwanthpur. Best price likely at <strong class='font-bold'>Hosur Market</strong> in the next <strong class='font-bold'>2 days</strong>." },
+            "Tomato-Pune, MH": { prices: [ { market: "Gultekdi Market Yard, Pune", price: 2050, trend: 1.2, trendDir: 'up' }, { market: "Vashi APMC, Navi Mumbai", price: 2180, trend: 3.5, trendDir: 'up' }, { market: "Pimpri Market, Pune", price: 1980, trend: -0.8, trendDir: 'down' } ], recommendation: "Strong demand at Vashi APMC. Consider transporting your produce there for <strong class='font-bold'>higher margins</strong>." },
+            "Tomato-Ludhiana, PB": { prices: [ { market: "Khanna Market", price: 1950, trend: -1.2, trendDir: 'down' }, { market: "Jagraon Mandi", price: 2020, trend: 0.3, trendDir: 'up' }, { market: "Ludhiana Mandi", price: 1990, trend: -0.5, trendDir: 'down' } ], recommendation: "Market prices are falling due to increased supply. Consider <strong class='font-bold'>storing</strong> your harvest if possible or selling at Jagraon for best current rates." },
+            
+            // Potato data for all locations
+            "Potato-Bengaluru, KA": { prices: [ { market: "KR Market, Bengaluru", price: 1750, trend: 3.1, trendDir: 'up' }, { market: "Yeshwanthpur APMC, Bengaluru", price: 1720, trend: 2.2, trendDir: 'up' }, { market: "Hosur Market, TN", price: 1680, trend: 1.5, trendDir: 'up' } ], recommendation: "Strong upward trend observed at KR Market. Prices expected to rise further due to <strong class='font-bold'>seasonal demand</strong>." },
+            "Potato-Pune, MH": { prices: [ { market: "Gultekdi Market Yard, Pune", price: 1800, trend: 1.5, trendDir: 'up' }, { market: "Vashi APMC, Navi Mumbai", price: 1850, trend: 2.1, trendDir: 'up' }, { market: "Pimpri Market, Pune", price: 1780, trend: -1.0, trendDir: 'down' } ], recommendation: "Stable prices at Gultekdi. Consider selling at <strong class='font-bold'>Vashi APMC</strong> for a premium if transport is viable." },
+            "Potato-Ludhiana, PB": { prices: [ { market: "Khanna Market", price: 1620, trend: 0.8, trendDir: 'up' }, { market: "Jagraon Mandi", price: 1650, trend: 1.2, trendDir: 'up' }, { market: "Ludhiana Mandi", price: 1640, trend: 0.5, trendDir: 'up' } ], recommendation: "Steady upward trend across all markets. <strong class='font-bold'>Jagraon Mandi</strong> offers the best current rates." },
+            
+            // Wheat data for all locations
+            "Wheat-Bengaluru, KA": { prices: [ { market: "KR Market, Bengaluru", price: 2250, trend: -0.3, trendDir: 'down' }, { market: "Yeshwanthpur APMC, Bengaluru", price: 2270, trend: 0.2, trendDir: 'up' }, { market: "Hosur Market, TN", price: 2210, trend: -0.7, trendDir: 'down' } ], recommendation: "Market appears to be stabilizing after recent price fluctuations. <strong class='font-bold'>Yeshwanthpur APMC</strong> shows positive movement." },
+            "Wheat-Pune, MH": { prices: [ { market: "Gultekdi Market Yard, Pune", price: 2120, trend: -0.8, trendDir: 'down' }, { market: "Vashi APMC, Navi Mumbai", price: 2180, trend: 0.3, trendDir: 'up' }, { market: "Pimpri Market, Pune", price: 2100, trend: -1.2, trendDir: 'down' } ], recommendation: "Consider selling at <strong class='font-bold'>Vashi APMC</strong>, which is showing resilience despite the general downward trend in other markets." },
+            "Wheat-Ludhiana, PB": { prices: [ { market: "Khanna Grain Market", price: 2080, trend: -0.2, trendDir: 'down' }, { market: "Jagraon Mandi", price: 2100, trend: 0.5, trendDir: 'up' }, { market: "Ludhiana Mandi", price: 2095, trend: 0.1, trendDir: 'up' } ], recommendation: "Prices are stable. <strong class='font-bold'>Jagraon Mandi</strong> is offering slightly better rates. Monitor for post-harvest arrivals." },
+            
+            // Rice data for all locations
+            "Rice-Bengaluru, KA": { prices: [ { market: "KR Market, Bengaluru", price: 3550, trend: 2.5, trendDir: 'up' }, { market: "Yeshwanthpur APMC, Bengaluru", price: 3520, trend: 2.1, trendDir: 'up' }, { market: "Hosur Market, TN", price: 3490, trend: 1.8, trendDir: 'up' } ], recommendation: "Strong demand pushing prices up across all markets. <strong class='font-bold'>KR Market</strong> offers premium rates for quality rice varieties." },
+            "Rice-Pune, MH": { prices: [ { market: "Gultekdi Market Yard, Pune", price: 3450, trend: 1.7, trendDir: 'up' }, { market: "Vashi APMC, Navi Mumbai", price: 3520, trend: 2.3, trendDir: 'up' }, { market: "Pimpri Market, Pune", price: 3400, trend: 1.2, trendDir: 'up' } ], recommendation: "Consistent price increase observed. Consider selling at <strong class='font-bold'>Vashi APMC</strong> for best returns." },
+            "Rice-Ludhiana, PB": { prices: [ { market: "Khanna Market", price: 3250, trend: 0.5, trendDir: 'up' }, { market: "Jagraon Mandi", price: 3280, trend: 0.7, trendDir: 'up' }, { market: "Ludhiana Mandi", price: 3270, trend: 0.6, trendDir: 'up' } ], recommendation: "Stable market with slight upward trend. <strong class='font-bold'>Jagraon Mandi</strong> currently offers marginally better prices." }
+        };
+        const cropSelect = document.getElementById('crop-select');
+        const locationSelect = document.getElementById('location-select');
+        const analyzeBtn = document.getElementById('analyze-market-btn');
+        const marketTableBody = document.getElementById('market-table-body');
+        const marketRecommendation = document.getElementById('market-recommendation');
+        const updateMarketView = () => {
+            const key = `${cropSelect.value}-${locationSelect.value}`;
+            const data = marketData[key] || { prices: [], recommendation: "No data available for this combination. Please try another selection." };
+            marketTableBody.innerHTML = '';
+            if (data.prices.length > 0) {
+                data.prices.forEach(item => {
+                    const trendColor = item.trendDir === 'up' ? 'text-green-600' : 'text-red-600';
+                    const trendIcon = item.trendDir === 'up' ? 'arrow-up' : 'arrow-down';
+                    const trendSign = item.trend > 0 ? '+' : '';
+                    const row = `<tr class="border-b"><td class="p-2">${item.market}</td><td class="p-2">₹${item.price.toLocaleString('en-IN')}</td><td class="p-2 flex items-center ${trendColor} font-semibold"><i data-lucide="${trendIcon}" class="h-4 w-4 mr-1"></i> ${trendSign}${item.trend}%</td></tr>`;
+                    marketTableBody.insertAdjacentHTML('beforeend', row);
+                });
+            } else { marketTableBody.innerHTML = `<tr><td colspan="3" class="text-center p-4 text-gray-500">No price data found.</td></tr>`; }
+            marketRecommendation.innerHTML = `<h3 class="font-bold text-lg mb-2 flex items-center"><i data-lucide="lightbulb" class="mr-2"></i>Recommendation</h3><p>${data.recommendation}</p>`;
+            lucide.createIcons();
+        };
+        analyzeBtn.addEventListener('click', updateMarketView);
+        document.addEventListener('DOMContentLoaded', updateMarketView);
+
+        // --- CHATBOT LOGIC ---
+        const chatbotToggle = document.getElementById('chatbot-toggle');
+        const chatbotWindow = document.getElementById('chatbot-window');
+        const chatOpenIcon = document.getElementById('chat-open-icon');
+        const chatCloseIcon = document.getElementById('chat-close-icon');
+        const chatMessages = document.getElementById('chat-messages');
+        const chatInput = document.getElementById('chat-input');
+        const chatSend = document.getElementById('chat-send');
+        chatbotToggle.addEventListener('click', () => { chatbotWindow.classList.toggle('hidden'); chatOpenIcon.classList.toggle('hidden'); chatCloseIcon.classList.toggle('hidden'); });
+        const addMessage = (text, sender) => {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `flex ${sender === 'user' ? 'justify-end' : ''}`;
+            const messageBubble = document.createElement('div');
+            messageBubble.className = `${sender === 'user' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-800'} p-3 rounded-lg max-w-xs`;
+            messageBubble.innerText = text;
+            messageDiv.appendChild(messageBubble);
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        };
+        const getBotResponse = (userInput) => {
+            const lowerInput = userInput.toLowerCase();
+            if (lowerInput.includes("hello") || lowerInput.includes("hi")) return "Hi there! I am your AI farming coach. Ask me for 'treatment' steps for a disease.";
+            if (lowerInput.includes("treatment")) return "Sure! For which disease? e.g., 'Tomato Late Blight'.";
+            if (lowerInput.includes("tomato late blight")) { setTimeout(() => addMessage("Step 1: Carefully remove and destroy the 3-4 lowest infected leaves.", 'bot'), 500); setTimeout(() => addMessage("Step 2: Mix 10g of Neem seed powder with 10 liters of water.", 'bot'), 1500); return "Here is the treatment plan for Tomato Late Blight."; }
+            return "I'm sorry, I don't understand that yet. Please ask me about 'treatment' for a specific disease.";
+        };
+        const handleSend = () => {
+            const userInput = chatInput.value.trim();
+            if (userInput) { addMessage(userInput, 'user'); chatInput.value = ''; setTimeout(() => { addMessage(getBotResponse(userInput), 'bot'); }, 1000); }
+        };
+        chatSend.addEventListener('click', handleSend);
+        chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleSend(); });
+
+        // --- ALERTS BUTTONS FUNCTIONALITY ---
+        document.addEventListener('DOMContentLoaded', function() {
+            // Make "View all active disease alerts" button work
+            document.querySelectorAll('.alerts-link').forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    showPage('alerts');
+                    window.scrollTo(0, 0);
+                });
+            });
+
+            // Make "View All 22 Alerts" button work
+            const viewAllAlertsBtn = document.getElementById('view-all-alerts');
+            if(viewAllAlertsBtn) {
+                viewAllAlertsBtn.addEventListener('click', () => {
+                    // This would typically load more alerts from a backend
+                    // For now, we'll just show a notification
+                    alert("This would load all 22 alerts from the server. In this demo, we're showing 3 example alerts.");
+                });
+            }
+
+            // Make "View on map" buttons work
+            document.querySelectorAll('.view-on-map-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const lat = parseFloat(btn.getAttribute('data-lat'));
+                    const lng = parseFloat(btn.getAttribute('data-lng'));
+                    
+                    // Navigate to map tab
+                    showPage('map-page');
+                    
+                    // Wait for map to be ready then center it on the location and add a marker
+                    setTimeout(() => {
+                        if(map) {
+                            map.setView([lat, lng], 14);
+                            // Add a temporary highlight marker
+                            const highlightMarker = L.marker([lat, lng]).addTo(map);
+                            highlightMarker.bindPopup("<strong>Alert Location</strong><br>Click to see details").openPopup();
+                            
+                            // Remove the marker after 10 seconds
+                            setTimeout(() => {
+                                if(highlightMarker) map.removeLayer(highlightMarker);
+                            }, 10000);
+                        }
+                    }, 100);
+                });
+            });
+            
+            // Handle crop selection for detection
+            window.selectedCrop = '';
+            
+            // Handle crop type buttons
+            document.querySelectorAll('.crop-type-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    // Remove active class from all buttons
+                    document.querySelectorAll('.crop-type-btn').forEach(b => 
+                        b.classList.remove('bg-green-100', 'text-green-800', 'border-green-500'));
+                    
+                    // Add active class to clicked button
+                    btn.classList.add('bg-green-100', 'text-green-800', 'border-green-500');
+                    
+                    // Set the selected crop
+                    window.selectedCrop = btn.getAttribute('data-crop');
+                    
+                    // Clear the custom input field
+                    document.getElementById('custom-crop-input').value = '';
+                    
+                    // If an image is already uploaded, reprocess with the new crop
+                    if (uploadedImage.src && document.getElementById('detection-result').classList.contains('active')) {
+                        processImageWithCrop();
+                    }
+                });
+            });
+            
+            // Handle custom crop input
+            document.getElementById('set-crop-btn').addEventListener('click', () => {
+                const customCrop = document.getElementById('custom-crop-input').value.trim();
+                if (customCrop) {
+                    window.selectedCrop = customCrop;
+                    
+                    // Remove active class from all buttons
+                    document.querySelectorAll('.crop-type-btn').forEach(b => 
+                        b.classList.remove('bg-green-100', 'text-green-800', 'border-green-500'));
+                    
+                    // If an image is already uploaded, reprocess with the new crop
+                    if (uploadedImage.src && document.getElementById('detection-result').classList.contains('active')) {
+                        processImageWithCrop();
+                    } else {
+                        alert(`Crop specified as: ${window.selectedCrop}. Now upload an image to analyze.`);
+                    }
+                }
+            });
+            
+            // Modify the handleFile function to use the specified crop
+            const originalHandleFile = handleFile;
+            window.handleFile = function(file) {
+                originalHandleFile(file);
+                
+                // If the user specified a crop, update the auto-detected crop
+                if(selectedCrop) {
+                    // This would be used in a real backend call
+                    console.log(`User specified crop: ${selectedCrop}`);
+                    
+                    // In the demo version, we'll update the crop name after prediction
+                    const checkInterval = setInterval(() => {
+                        const cropElement = document.querySelector('#result-content .bg-white div:first-child span.font-bold');
+                        if(cropElement) {
+                            clearInterval(checkInterval);
+                            cropElement.textContent = selectedCrop;
+                            
+                            // Also update the market data
+                            const cropSelect = document.getElementById('crop-select');
+                            for (let i = 0; i < cropSelect.options.length; i++) {
+                                if (cropSelect.options[i].text.toLowerCase() === selectedCrop.toLowerCase()) {
+                                    cropSelect.selectedIndex = i;
+                                    // Trigger analysis
+                                    document.getElementById('analyze-market-btn').click();
+                                    break;
+                                }
+                            }
+                        }
+                    }, 100);
+                }
+            };
+        });
+    </script>
+</body>
+</html>
+
