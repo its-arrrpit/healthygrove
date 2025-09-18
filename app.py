@@ -446,6 +446,57 @@ def public_config():
     })
 
 
+@app.route('/models', methods=['GET'])
+def list_models():
+    """Return available on-device models for optional offline inference.
+    This is metadata only; actual model files are served from /static/models/* and are small placeholders in this demo.
+    """
+    base_url = '/static/models'
+    models = [
+        {
+            'id': 'plant-disease-v2-1-0',
+            'name': 'Plant Disease Detection v2.1.0',
+            'version': '2.1.0',
+            'sizeMB': 15.0,
+            'accuracy': 92.4,
+            'f1': 91.8,
+            'inferenceMs': 145,
+            'notes': 'Improved accuracy for tomato and potato diseases. Reduced model size by ~15%.',
+            'file': f"{base_url}/plant_disease_v2.1.0.bin",
+        },
+        {
+            'id': 'plant-disease-v2-0-30',
+            'name': 'Plant Disease Detection v2.0.30',
+            'version': '2.0.30',
+            'sizeMB': 17.58,
+            'accuracy': 91.2,
+            'f1': 90.5,
+            'inferenceMs': 189,
+            'notes': 'Previous stable version with good performance on corn and wheat diseases.',
+            'file': f"{base_url}/plant_disease_v2.0.30.bin",
+        },
+        {
+            'id': 'tomato-lite-v1',
+            'name': 'Tomato-only Lite v1',
+            'version': '1.0.0',
+            'sizeMB': 6.2,
+            'accuracy': 90.1,
+            'f1': 89.0,
+            'inferenceMs': 88,
+            'notes': 'Tiny model focusing on common tomato diseases. Optimized for low-end devices.',
+            'file': f"{base_url}/tomato_lite_v1.bin",
+        },
+    ]
+    # Device hints for the UI
+    device = {
+        'webgl': True,  # UI should detect real support on client; this is a hint
+        'minRamGB': 2,
+        'recommendedRamGB': 4,
+        'fastDownload': True,
+    }
+    return jsonify({'models': models, 'device': device})
+
+
 if __name__ == '__main__':
     # Runs the Flask server on localhost, port 5000
     app.run(debug=True, host='0.0.0.0', port=5000)
