@@ -89,6 +89,19 @@
                         <i data-lucide="scan-line" class="text-green-600"></i>
                         <span>AI-Powered Disease & Crop Detection</span>
                     </h2>
+                    <!-- New: AI Analyzer by Crop Name (No image required) -->
+                    <div class="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
+                        <h3 class="font-semibold text-green-800 mb-2 flex items-center space-x-2">
+                            <i data-lucide="bot" class="text-green-700"></i>
+                            <span>AI Analyzer by Crop Name (No Image)</span>
+                        </h3>
+                        <div class="flex flex-col md:flex-row gap-2 md:items-center">
+                            <input id="ai-crop-input" type="text" placeholder="Enter crop name (e.g., Tomato, Potato, Corn)" class="flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500" />
+                            <button id="ai-crop-analyze-btn" class="bg-green-600 text-white font-semibold px-4 py-2 rounded-md hover:bg-green-700">Analyze</button>
+                        </div>
+                        <div id="ai-crop-result" class="mt-4 hidden"></div>
+                    </div>
+
                     <p class="text-gray-600 mb-2">Upload a plant leaf photo to detect <span class="font-semibold text-green-700">disease</span> and <span class="font-semibold text-green-700">crop type</span>.</p>
                     <div id="drop-zone" class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center transition-colors duration-300">
                         <input type="file" id="image-upload" class="hidden" accept="image/*">
@@ -527,6 +540,10 @@
         const resultContent = document.getElementById('result-content');
         const dropZone = document.getElementById('drop-zone');
         const learnContentWrapper = document.getElementById('learn-content-wrapper');
+    // New AI analyzer elements
+    const aiCropInput = document.getElementById('ai-crop-input');
+    const aiCropAnalyzeBtn = document.getElementById('ai-crop-analyze-btn');
+    const aiCropResult = document.getElementById('ai-crop-result');
 
         const resetDetectionUI = () => {
             detectionResultDiv.classList.add('hidden');
@@ -595,6 +612,8 @@
                     <div class="flex justify-between items-center"><span class="font-semibold">Confidence:</span><span class="font-bold text-green-700">${resultData.confidence}</span></div>
                     <p class="text-sm text-gray-600 pt-2">${resultData.description}</p>
                     <button class="view-treatment-btn w-full bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition mt-4">View Treatment Plan</button>
+                    <button id="ai-treatment-btn" class="w-full bg-emerald-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-emerald-700 transition">Ask AI for Treatment</button>
+                    <div id="ai-treatment-card" class="hidden mt-3 bg-emerald-50 border border-emerald-200 rounded-lg p-4"></div>
                     <div class="pt-4 text-center">
                         <p class="text-sm font-semibold mb-2">Was this diagnosis helpful?</p>
                         <div class="flex justify-center space-x-4">
@@ -608,6 +627,53 @@
             lucide.createIcons();
             resultContent.querySelector('.view-treatment-btn').addEventListener('click', () => goToLearnPage(prediction.disease));
             document.getElementById('reupload-btn').addEventListener('click', resetDetectionUI);
+
+            // Wire AI Treatment fetch
+            const aiBtn = document.getElementById('ai-treatment-btn');
+            const aiCard = document.getElementById('ai-treatment-card');
+            aiBtn.addEventListener('click', async () => {
+                aiCard.classList.remove('hidden');
+                aiCard.innerHTML = `<div class="flex items-center space-x-3"><div class=\"animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600\"></div><p class=\"font-semibold\">Consulting AI for an organic-first treatment plan...</p></div>`;
+                try {
+                    const crop = cropName;
+                    const disease = prediction.disease.split('___')[1].replace(/_/g, ' ');
+                    const resp = await fetch('http://127.0.0.1:5000/treatment', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ crop, disease })
+                    });
+                    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                    const data = await resp.json();
+                    if (!data.plan) throw new Error(data.error || 'No plan returned');
+                    const p = data.plan;
+                    const list = (arr) => Array.isArray(arr) && arr.length ? `<ul class=\"list-disc pl-5 space-y-1\">${arr.map(x=>`<li>${x}</li>`).join('')}</ul>` : '<p class="text-gray-500">No details provided.</p>';
+                    aiCard.innerHTML = `
+                        <h4 class="font-bold text-emerald-800 mb-1">${p.title || 'AI Treatment Plan'}</h4>
+                        ${p.summary ? `<p class="text-gray-700 mb-3">${p.summary}</p>` : ''}
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <h5 class="font-semibold text-gray-800">Materials (organic-first)</h5>
+                                ${list(p.materials)}
+                            </div>
+                            <div>
+                                <h5 class="font-semibold text-gray-800">Safety</h5>
+                                ${list(p.safety)}
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <h5 class="font-semibold text-gray-800">Step-by-step Instructions</h5>
+                            ${list(p.steps)}
+                        </div>
+                        <div class="mt-3">
+                            <h5 class="font-semibold text-gray-800">Prevention Tips</h5>
+                            ${list(p.prevention)}
+                        </div>
+                        ${p.disclaimer ? `<p class="text-xs text-gray-500 mt-3">${p.disclaimer}</p>` : ''}
+                    `;
+                } catch (e) {
+                    aiCard.innerHTML = `<div class="text-red-700">Failed to get AI plan. Make sure the backend is running and GEMINI_API_KEY is set. (${e})</div>`;
+                }
+            });
             
             // Auto-select crop in Market Intelligence
             const cropSelect = document.getElementById('crop-select');
@@ -620,6 +686,71 @@
                 }
             }
         };
+
+        // New: Simple AI Analyzer by Crop Name (no image)
+        const normalizeCropKey = (s) => s.split('___')[0].replace(/[_()]/g, ' ').toLowerCase();
+        const pickDiseaseForCrop = (crop) => {
+            const input = crop.trim().toLowerCase();
+            if (!input) return null;
+            // Find matching diseases by crop part
+            const matches = Object.keys(diseaseDatabase).filter(k => normalizeCropKey(k).includes(input));
+            if (matches.length === 0) return null;
+            return matches[Math.floor(Math.random() * matches.length)];
+        };
+        const renderAiCropResult = (typedCrop, diseaseKey) => {
+            const info = diseaseDatabase[diseaseKey];
+            const diseaseName = diseaseKey.split('___')[1].replace(/_/g, ' ');
+            aiCropResult.classList.remove('hidden');
+            aiCropResult.innerHTML = `
+                <div class="bg-white p-4 rounded-lg shadow-inner">
+                    <h4 class="font-bold text-lg mb-2">AI Analysis</h4>
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center"><span class="font-semibold">Crop:</span><span class="font-bold">${typedCrop}</span></div>
+                        <div class="flex justify-between items-center"><span class="font-semibold">Predicted Issue:</span><span class="font-bold text-red-600">${diseaseName}</span></div>
+                        <div class="flex justify-between items-center"><span class="font-semibold">Confidence:</span><span class="font-bold text-green-700">${info.confidence}</span></div>
+                    </div>
+                    <p class="text-sm text-gray-600 mt-3">${info.description}</p>
+                    <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <button id="ai-view-treatment" class="w-full bg-green-600 text-white font-semibold py-2 px-3 rounded-md hover:bg-green-700">View Treatment Plan</button>
+                        <button id="ai-reset" class="w-full bg-gray-200 text-gray-800 font-semibold py-2 px-3 rounded-md hover:bg-gray-300">Analyze Another</button>
+                    </div>
+                </div>
+            `;
+            // Wire actions
+            document.getElementById('ai-view-treatment').addEventListener('click', () => goToLearnPage(diseaseKey));
+            document.getElementById('ai-reset').addEventListener('click', () => { aiCropResult.classList.add('hidden'); aiCropResult.innerHTML = ''; aiCropInput.focus(); });
+            // Keep Market Intelligence in sync
+            const cropSelectEl = document.getElementById('crop-select');
+            for (let i = 0; i < cropSelectEl.options.length; i++) {
+                if (cropSelectEl.options[i].text.toLowerCase() === typedCrop.toLowerCase()) {
+                    cropSelectEl.selectedIndex = i;
+                    document.getElementById('analyze-market-btn').click();
+                    break;
+                }
+            }
+            lucide.createIcons();
+        };
+        if (aiCropAnalyzeBtn) {
+            aiCropAnalyzeBtn.addEventListener('click', () => {
+                const typed = aiCropInput.value.trim();
+                if (!typed) {
+                    aiCropResult.classList.remove('hidden');
+                    aiCropResult.innerHTML = `<div class="bg-white p-4 rounded-lg shadow-inner text-red-700">Please enter a crop name to analyze.</div>`;
+                    return;
+                }
+                // Show loading state
+                aiCropResult.classList.remove('hidden');
+                aiCropResult.innerHTML = `<div class="flex flex-col items-center justify-center h-full text-center bg-white p-6 rounded-lg"><div class="animate-spin rounded-full h-10 w-10 border-b-2 border-green-600"></div><p class="mt-3 font-semibold">Analyzing for <span class="text-green-700">${typed}</span>...</p></div>`;
+                setTimeout(() => {
+                    const key = pickDiseaseForCrop(typed);
+                    if (!key) {
+                        aiCropResult.innerHTML = `<div class="bg-white p-4 rounded-lg shadow-inner"><h4 class="font-bold mb-1">No Data Found</h4><p class="text-gray-600">We couldn't find any issues for "${typed}" in the demo knowledge base. Try Tomato, Potato, Corn, or similar.</p></div>`;
+                        return;
+                    }
+                    renderAiCropResult(typed, key);
+                }, 700);
+            });
+        }
 
         // --- FUNCTION TO CALL THE BACKEND ---
         async function predictDisease(imageFile, cropName = '') {
