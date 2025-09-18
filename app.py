@@ -3,6 +3,7 @@ from flask_cors import CORS
 import os
 import re
 import json
+from datetime import datetime
 # TensorFlow and related imports are temporarily commented out to focus on frontend
 # import tensorflow as tf
 # from PIL import Image
@@ -305,6 +306,77 @@ def preprocess_image(image_bytes):
         print(f"Error with image: {e}")
         return None
 
+# ---------------------------
+# Simple JSON history storage
+# ---------------------------
+DATA_DIR = os.path.join(os.path.dirname(__file__), 'data')
+HISTORY_PATH = os.path.join(DATA_DIR, 'history.json')
+
+def _ensure_data_dir():
+    try:
+        os.makedirs(DATA_DIR, exist_ok=True)
+    except Exception:
+        pass
+
+def _load_history():
+    _ensure_data_dir()
+    if not os.path.exists(HISTORY_PATH):
+        return []
+    try:
+        with open(HISTORY_PATH, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+def _save_history(items):
+    _ensure_data_dir()
+    try:
+        with open(HISTORY_PATH, 'w', encoding='utf-8') as f:
+            json.dump(items, f, ensure_ascii=False, indent=2)
+        return True
+    except Exception as e:
+        print('Failed to save history:', e)
+        return False
+
+def _add_history_entry(entry: dict):
+    items = _load_history()
+    items.append(entry)
+    _save_history(items)
+
+def _compute_history_stats(items):
+    total = len(items)
+    high = 0
+    this_month = 0
+    now = datetime.utcnow()
+    for it in items:
+        # confidence may be like "92.13%" or number; normalize
+        conf_val = it.get('confidence', '')
+        perc = 0.0
+        if isinstance(conf_val, str) and conf_val.endswith('%'):
+            try:
+                perc = float(conf_val.strip('%')) / 100.0
+            except Exception:
+                perc = 0.0
+        elif isinstance(conf_val, (int, float)):
+            perc = float(conf_val)
+            if perc > 1.0:
+                perc = perc / 100.0
+        if perc >= 0.85:
+            high += 1
+        # month match
+        try:
+            ts = datetime.fromisoformat(it.get('timestamp', '').replace('Z',''))
+            if ts.year == now.year and ts.month == now.month:
+                this_month += 1
+        except Exception:
+            pass
+    return {
+        'total': total,
+        'highConfidence': high,
+        'thisMonth': this_month,
+    }
+
 @app.route('/predict', methods=['POST'])
 def predict():
     if 'file' not in request.files:
@@ -339,12 +411,32 @@ def predict():
             # Generate a random confidence between 75% and 99%
             confidence = random.uniform(0.75, 0.99)
 
-            # Return the result as JSON
-            return jsonify({
+            # Prepare result
+            result = {
                 'disease': predicted_class_name,
                 'confidence': f"{confidence:.2%}",
                 'specified_crop': bool(crop_name)  # Indicate if user specified a crop
-            })
+            }
+
+            # Persist to history (best-effort, non-blocking semantics)
+            try:
+                crop_from_pred = predicted_class_name.split('___')[0].replace('_', ' ')
+                disease_name = predicted_class_name.split('___')[1].replace('_', ' ') if '___' in predicted_class_name else predicted_class_name
+                entry = {
+                    'id': f"{int(datetime.utcnow().timestamp()*1000)}-{random.randint(1000,9999)}",
+                    'timestamp': datetime.utcnow().isoformat() + 'Z',
+                    'crop': crop_name or crop_from_pred,
+                    'disease': disease_name,
+                    'confidence': result['confidence'],
+                    'source': 'backend-demo',
+                    'image': None  # in this lightweight demo we do not store images
+                }
+                _add_history_entry(entry)
+            except Exception as e:
+                print('Failed to append history:', e)
+
+            # Return the result as JSON
+            return jsonify(result)
 
         except Exception as e:
             print(f"Prediction Error: {e}")
@@ -495,6 +587,57 @@ def list_models():
         'fastDownload': True,
     }
     return jsonify({'models': models, 'device': device})
+
+
+@app.route('/history', methods=['GET'])
+def get_history():
+    """Return diagnosis history with basic stats.
+    Query params:
+      - limit: number of recent items to return (default 50)
+    """
+    try:
+        items = _load_history()
+        # Sort by timestamp desc if present
+        def _key(it):
+            try:
+                return datetime.fromisoformat(it.get('timestamp', '').replace('Z',''))
+            except Exception:
+                return datetime.min
+        items_sorted = sorted(items, key=_key, reverse=True)
+        try:
+            limit = int(request.args.get('limit', '50'))
+        except Exception:
+            limit = 50
+        sliced = items_sorted[:max(0, min(limit, 500))]
+        stats = _compute_history_stats(items)
+        return jsonify({'items': sliced, 'stats': stats})
+    except Exception as e:
+        print('History GET failed:', e)
+        return jsonify({'items': [], 'stats': {'total': 0, 'highConfidence': 0, 'thisMonth': 0}})
+
+
+@app.route('/history', methods=['POST'])
+def add_history():
+    """Optional endpoint to add a history item from the client.
+    Body example: {"crop":"Tomato","disease":"Late blight","confidence":"92%","image":null}
+    """
+    try:
+        payload = request.get_json(silent=True) or {}
+        now_iso = datetime.utcnow().isoformat() + 'Z'
+        entry = {
+            'id': f"{int(datetime.utcnow().timestamp()*1000)}-{random.randint(1000,9999)}",
+            'timestamp': now_iso,
+            'crop': str(payload.get('crop','')).strip(),
+            'disease': str(payload.get('disease','')).strip(),
+            'confidence': payload.get('confidence', ''),
+            'source': str(payload.get('source','client')).strip() or 'client',
+            'image': payload.get('image', None)
+        }
+        _add_history_entry(entry)
+        return jsonify({'ok': True, 'entry': entry})
+    except Exception as e:
+        print('History POST failed:', e)
+        return jsonify({'ok': False}), 500
 
 
 if __name__ == '__main__':

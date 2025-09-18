@@ -1,0 +1,29 @@
+[
+  {
+    "id": "1758216759643-1542",
+    "timestamp": "2025-09-18T23:02:39.643744Z",
+    "crop": "Tomato",
+    "disease": "Late blight",
+    "confidence": "92%",
+    "source": "offline",
+    "image": null
+  },
+  {
+    "id": "1758216773830-1251",
+    "timestamp": "2025-09-18T23:02:53.830865Z",
+    "crop": "Potato",
+    "disease": "Early blight",
+    "confidence": "89%",
+    "source": "offline",
+    "image": null
+  },
+  {
+    "id": "1758216813545-3495",
+    "timestamp": "2025-09-18T23:03:33.545475Z",
+    "crop": "Tomato",
+    "disease": "Late blight",
+    "confidence": "96%",
+    "source": "offline",
+    "image": null
+  }
+]
