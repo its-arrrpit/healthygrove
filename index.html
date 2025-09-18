@@ -77,6 +77,7 @@
                 <a href="#alerts" class="nav-link py-2 px-4 rounded-lg flex items-center space-x-2 hover:bg-green-50"><i data-lucide="bell"></i><span>Alerts</span></a>
                 <a href="#history" class="nav-link py-2 px-4 rounded-lg flex items-center space-x-2 hover:bg-green-50"><i data-lucide="history"></i><span>History</span></a>
                 <a href="#learn" class="nav-link py-2 px-4 rounded-lg flex items-center space-x-2 hover:bg-green-50"><i data-lucide="book-open"></i><span>Learn</span></a>
+                <a href="#whatsapp" class="nav-link py-2 px-4 rounded-lg flex items-center space-x-2 hover:bg-green-50"><i data-lucide="message-circle"></i><span>WhatsApp Doctor</span></a>
             </nav>
         </header>
 
@@ -409,6 +410,35 @@
             </div>
         </main>
 
+        <!-- WhatsApp Plant Doctor Section -->
+        <section id="whatsapp" class="page">
+            <div class="bg-white p-6 rounded-xl shadow-md">
+                <h2 class="text-2xl font-bold mb-4 flex items-center space-x-2">
+                    <i data-lucide="message-circle" class="text-green-600"></i>
+                    <span>WhatsApp Plant Doctor</span>
+                </h2>
+                <div class="rounded-xl p-4 bg-green-50 border border-green-200">
+                    <p class="text-gray-700 mb-4">Get instant plant disease diagnosis and treatment guidance directly through WhatsApp.</p>
+                    <ol class="list-decimal pl-6 space-y-2 text-gray-700">
+                        <li>Send a photo of your affected plant to our WhatsApp number</li>
+                        <li>Receive AI-powered disease diagnosis and confidence score</li>
+                        <li>Get step-by-step treatment guidance with voice instructions</li>
+                    </ol>
+                    <div class="mt-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                        <div>
+                            <div class="text-sm text-gray-600">WhatsApp Plant Doctor</div>
+                            <div id="wa-number" class="text-xl font-bold text-green-700">Loading…</div>
+                            <div class="text-sm text-gray-500">Available 24/7 in English and Hindi</div>
+                        </div>
+                        <a id="wa-start-chat" href="#" target="_blank" class="inline-flex items-center justify-center bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition disabled:opacity-50 disabled:pointer-events-none">
+                            <i data-lucide="send"></i>
+                            <span class="ml-2">Start Chat</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <!-- Chatbot -->
         <div id="chatbot-container" class="fixed bottom-5 right-5 z-50">
             <button id="chatbot-toggle" class="bg-green-600 text-white rounded-full p-4 shadow-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
@@ -436,6 +466,12 @@
         </div>
 
     </div>
+
+    <!-- Floating WhatsApp button -->
+    <a id="wa-fab" href="#" target="_blank" rel="noopener noreferrer"
+       class="fixed bottom-5 left-5 z-50 bg-green-600 text-white rounded-full p-4 shadow-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+        <i data-lucide="message-circle"></i>
+    </a>
 
     <script>
         // --- LUCIDE ICONS INITIALIZATION ---
@@ -479,6 +515,68 @@
                 }
             });
         });
+
+        // --- WHATSAPP DOCTOR CONFIG ---
+        async function initWhatsAppDoctor() {
+            const waNumberEl = document.getElementById('wa-number');
+            const waBtn = document.getElementById('wa-start-chat');
+            const waFab = document.getElementById('wa-fab');
+            // Default to the number you requested if config is missing
+            const fallbackFormatted = '+1 (415) 523-8886';
+            const fallbackDigits = '14155238886';
+            const buildLink = (digits, message) => `https://wa.me/${digits}?text=${encodeURIComponent(message || 'Hello! I need help diagnosing my crop.')}`;
+            try {
+                const res = await fetch('/public-config');
+                const cfg = await res.json();
+                const raw = (cfg?.whatsapp?.number || '').trim();
+                const digits = raw.replace(/\D/g, '');
+                const message = cfg?.whatsapp?.defaultMessage || 'Hello! I need help diagnosing my crop.';
+                if (digits) {
+                    waNumberEl.textContent = `+${digits}`;
+                    waBtn.href = buildLink(digits, message);
+                    waBtn.removeAttribute('disabled');
+                    if (waFab) waFab.href = buildLink(digits, message);
+                } else {
+                    // Use fallback
+                    waNumberEl.textContent = fallbackFormatted;
+                    waBtn.href = buildLink(fallbackDigits, 'Hello! I need help diagnosing my crop.');
+                    waBtn.removeAttribute('disabled');
+                    if (waFab) waFab.href = buildLink(fallbackDigits, 'Hello! I need help diagnosing my crop.');
+                }
+                lucide.createIcons();
+            } catch (e) {
+                // Network or server issue—still enable using fallback
+                waNumberEl.textContent = fallbackFormatted;
+                waBtn.href = buildLink(fallbackDigits, 'Hello! I need help diagnosing my crop.');
+                waBtn.removeAttribute('disabled');
+                if (waFab) waFab.href = buildLink(fallbackDigits, 'Hello! I need help diagnosing my crop.');
+                lucide.createIcons();
+            }
+            // Defensive: always open the computed link in a new tab
+            if (waBtn) {
+                waBtn.setAttribute('rel', 'noopener noreferrer');
+                waBtn.addEventListener('click', (ev) => {
+                    const href = waBtn.getAttribute('href');
+                    if (!href || href === '#') {
+                        ev.preventDefault();
+                        const url = buildLink(fallbackDigits, 'Hello! I need help diagnosing my crop.');
+                        window.open(url, '_blank');
+                    }
+                });
+            }
+            if (waFab) {
+                waFab.setAttribute('rel', 'noopener noreferrer');
+                waFab.addEventListener('click', (ev) => {
+                    const href = waFab.getAttribute('href');
+                    if (!href || href === '#') {
+                        ev.preventDefault();
+                        const url = buildLink(fallbackDigits, 'Hello! I need help diagnosing my crop.');
+                        window.open(url, '_blank');
+                    }
+                });
+            }
+        }
+    document.addEventListener('DOMContentLoaded', () => { initWhatsAppDoctor(); });
         
         // --- MOCK DATA STORE (ALIGNED WITH THE GITHUB REPO MODEL) ---
         const diseaseDatabase = {

@@ -253,6 +253,19 @@ def treatment():
         return jsonify({"error": "Internal server error"}), 500
 
 
+@app.route('/public-config', methods=['GET'])
+def public_config():
+    """Return non-sensitive config values for frontend consumption."""
+    wa_number = os.environ.get('WHATSAPP_NUMBER', '').strip()
+    wa_message = os.environ.get('WHATSAPP_DEFAULT_MESSAGE', 'Hello! I need help diagnosing my crop.').strip()
+    return jsonify({
+        'whatsapp': {
+            'number': wa_number,
+            'defaultMessage': wa_message
+        }
+    })
+
+
 if __name__ == '__main__':
     # Runs the Flask server on localhost, port 5000
     app.run(debug=True, host='0.0.0.0', port=5000)
